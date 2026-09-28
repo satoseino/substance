@@ -34,4 +34,6 @@ alias ls-path='printenv PATH | tr ":" "\n"'
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
   alias mvim='open -a MacVim'
+
+  alias update-codex='curl -fsSL https://chatgpt.com/codex/install.sh | sh'
 fi
