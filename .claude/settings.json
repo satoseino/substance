@@ -58,8 +58,7 @@
       }
     }
   },
-  "effortLevel": "xhigh",
-  "minimumVersion": "2.1.84",
+  "minimumVersion": "2.1.282",
   "tui": "default",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
