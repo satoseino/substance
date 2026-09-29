@@ -124,7 +124,7 @@ main() {
   mkdir -p "$HOME/.local/bin"
 
   local substance_dir
-  substance_dir="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" && pwd)"
+  substance_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
   local prefix
   sei::get_env_prefix "prefix"
@@ -220,7 +220,7 @@ main() {
   [[ -e "$substance_dir/.git/hooks/post-merge" ]] || args+=("-t" "post-merge")
 
   if ((${#args[@]} > 0)); then
-    pre-commit install "${args[@]}"
+    (cd "$substance_dir" && pre-commit install "${args[@]}")
   fi
 }
 
