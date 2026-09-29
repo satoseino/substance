@@ -42,6 +42,12 @@ _link_files() {
       sei::log_info "Removing existing file $name"
 
       rm "$1/$name"
+    elif [[ -e "$1/$name" ]]; then
+      # If the ln target exists as anything else (e.g. a directory), leave it
+      # alone: ln -s would otherwise create the symlink inside it.
+      sei::log_error "$1/$name already exists and is not a symlink or regular file"
+
+      continue
     fi
 
     ln -s "$2/$name" "$1/$name"
