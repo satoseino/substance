@@ -273,11 +273,9 @@ map({ "t" }, "<A-n>", function()
   vim.cmd.stopinsert()
 end, { desc = "jumping out of terminal mode." })
 
--- Dedent in the plus register
-map({ "n" }, "<leader>dp", function()
-  local text = vim.fn.getreg "+"
-  local lines = vim.split(text, "\n", { plain = true })
-
+-- Strip the longest common leading whitespace from `lines` in place.
+-- Returns false when there is no common indent to strip.
+local function dedent_lines(lines)
   local prefix = nil
   for _, line in ipairs(lines) do
     if line:match "%S" then
@@ -295,7 +293,7 @@ map({ "n" }, "<leader>dp", function()
   end
 
   if not prefix or prefix == "" then
-    return
+    return false
   end
 
   for i, line in ipairs(lines) do
@@ -304,8 +302,73 @@ map({ "n" }, "<leader>dp", function()
     end
   end
 
-  vim.fn.setreg("+", table.concat(lines, "\n"))
-end, { desc = "dedent the string in the plug register." })
+  return true
+end
+
+local function md_is_rule(line)
+  local compact = line:gsub("%s", "")
+  return compact:match "^%-%-%-+$" ~= nil
+    or compact:match "^%*%*%*+$" ~= nil
+    or compact:match "^___+$" ~= nil
+    or compact:match "^=+$" ~= nil
+end
+
+-- Markdown lines that must start on their own line, so are never joined onto the previous one.
+local function md_starts_block(line)
+  return line:match "^%s*[-*+]%s" ~= nil -- bullet list item
+    or line:match "^%s*%d+[.)]%s" ~= nil -- ordered list item
+    or line:match "^%s*#+%s" ~= nil -- ATX heading
+    or line:match "^%s*>" ~= nil -- blockquote
+    or line:match "^%s*|" ~= nil -- table row
+    or line:match "^%s*</?%a" ~= nil -- HTML block
+    or md_is_rule(line) -- thematic break / setext underline
+end
+
+-- Markdown lines that nothing may be joined onto.
+local function md_ends_block(line)
+  return line:match "^%s*#+%s" ~= nil or line:match "^%s*|" ~= nil or line:match "^%s*</?%a" ~= nil or md_is_rule(line)
+end
+
+-- Join hard-wrapped markdown lines (e.g. yanked from a terminal buffer) back into one line per paragraph / list item.
+-- Fenced code blocks are left untouched. When unsure, a line is kept as-is rather than joined.
+local function unwrap_md_lines(lines)
+  local out = {}
+  local in_fence = false
+  local can_join = false
+
+  for _, line in ipairs(lines) do
+    if line:match "^%s*```" or line:match "^%s*~~~" then
+      in_fence = not in_fence
+      table.insert(out, line)
+      can_join = false
+    elseif in_fence or not line:match "%S" then
+      table.insert(out, line)
+      can_join = false
+    elseif can_join and not md_starts_block(line) then
+      out[#out] = (out[#out]:gsub("%s+$", "")) .. " " .. (line:gsub("^%s+", ""))
+    else
+      table.insert(out, line)
+      can_join = not md_ends_block(line)
+    end
+  end
+
+  return out
+end
+
+-- Dedent in the plus register
+map({ "n" }, "<leader>do", function()
+  local lines = vim.split(vim.fn.getreg "+", "\n", { plain = true })
+  if dedent_lines(lines) then
+    vim.fn.setreg("+", table.concat(lines, "\n"))
+  end
+end, { desc = "dedent the string in the plus register." })
+
+-- Dedent and unwrap markdown in the plus register
+map({ "n" }, "<leader>dp", function()
+  local lines = vim.split(vim.fn.getreg "+", "\n", { plain = true })
+  dedent_lines(lines)
+  vim.fn.setreg("+", table.concat(unwrap_md_lines(lines), "\n"))
+end, { desc = "dedent and unwrap the markdown string in the plus register." })
 
 local sei_kpath_absolute = false
 
