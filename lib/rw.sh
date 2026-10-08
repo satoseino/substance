@@ -146,7 +146,7 @@ _sei_rw::renew_registry() {
   local -a to_delete
   mapfile -t to_delete < <(
     git -C "jarvis-registry" branch |
-      awk '/^  / && !/  parking\// { sub(/^  /, ""); print }' |
+      awk '/^  / && !/  parking\// && !/^  main$/ { sub(/^  /, ""); print }' |
       fzf -m --height=50% --layout=reverse --bind 'load:select-all'
   )
 
@@ -221,7 +221,7 @@ _sei_rw::renew_cli() {
   local -a to_delete
   mapfile -t to_delete < <(
     git -C "jarvis-registry-cli" branch |
-      awk '/^  / && !/  parking\// { sub(/^  /, ""); print }' |
+      awk '/^  / && !/  parking\// && !/^  main$/ { sub(/^  /, ""); print }' |
       fzf -m --height=50% --layout=reverse --bind 'load:select-all'
   )
 
