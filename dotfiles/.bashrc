@@ -16,12 +16,12 @@ trap 'sei::bash_post_init; trap - RETURN' RETURN
 # ------------------------------------------------------------------------
 # Environment variables
 
-# Make GPG correctly cache passphrase on VS Code terminal
+# Tell gpg-agent which terminal to use for TTY/curses pinentry (headless Linux, SSH).
+# No-op with pinentry-mac.
 GPG_TTY=$(tty)
 export GPG_TTY
 
 # C-x C-e invokes Vim on the current command line.
-# VSCode integrated terminal has some problem with NeoVim.
 export EDITOR=vim
 # ------------------------------------------------------------------------
 # Load aliases for interactive use.
