@@ -17,9 +17,6 @@ exclude-entropy-patterns = [
 ]
 
 exclude-signatures = [
-    {signature = "f778aaca32f07db00e1a7ca8270caccb1007f7916aea3274313a9de29fd76e5e", reason = "false positive of GPG public key signature in .gitconfig file"},
-    {signature = "2e24f3c6a6e0c19dd4000edca4cf9459f3b2537af98cb4be2fdb5814765cc137", reason = "GPG signing key ID is not credential"},
-    {signature = "d15c86f2fa2e7cc609065f6cef0a3e14c0109d1b7294ec91ad2767523132efb3", reason = "GPG signing key ID is not credential"},
     {signature = "aa37346ad20bbb6b2ff6dc5e077139dc3b15d1d6670f962189a90a943303be21", reason = "file path is not credential"},
     {signature = "5a258374c1924e68e05ad2125aa0ba0a58c821c3537417b5eb13cddd2043d0f1", reason = "file path is not credential"},
     {signature = "4c99be33752cec2d001de7b906d74033bb84b1ad512f59cc84ea46d8d5c31648", reason = "file path is not credential"},
@@ -29,6 +26,4 @@ exclude-signatures = [
     {signature = "1a24211be21e35d5b20a88000daed61423df7b6bc11d5bafaef7bf0dd2d37a07", reason = "Jarvis Registry skill ID is not credential"},
     {signature = "6b35104acf7ab1420f21e1fa26a9d988fb79cfe38efe3409ce1e9bdb56140ba0", reason = "made-up skill ID in spec test case is not credential"},
     {signature = "00ef010dfbd47da68bc3ccfe1d4e1b3a080e8e2a69c07327022a2bca88a8f31e", reason = "made-up skill ID in review report test case is not credential"},
-    {signature = "9c5a407d072dd958b40fdfa02258a8cbec4d2b0c2b9bb9f1d54fb09e47f2537b", reason = "GPG signing key ID is not credential"},
-    {signature = "b0111465a03e3f4f50dd8756de22248a6a62aba27fbc140634030660c43c5c11", reason = "GPG signing key ID is not credential"},
 ]

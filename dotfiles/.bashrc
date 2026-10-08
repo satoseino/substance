@@ -16,11 +16,6 @@ trap 'sei::bash_post_init; trap - RETURN' RETURN
 # ------------------------------------------------------------------------
 # Environment variables
 
-# Tell gpg-agent which terminal to use for TTY/curses pinentry (headless Linux, SSH).
-# No-op with pinentry-mac.
-GPG_TTY=$(tty)
-export GPG_TTY
-
 # C-x C-e invokes Vim on the current command line.
 export EDITOR=vim
 # ------------------------------------------------------------------------

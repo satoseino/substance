@@ -1,11 +1,6 @@
 [user]
 	name = satoseino
 	email = 72355409+satoseino@users.noreply.github.com
-	signingkey = E85F342A435382B5DB8C10C941996E9C463CE073
-[commit]
-	gpgsign = true
-[tag]
-	gpgSign = true
 [core]
 	editor = vim
 [init]

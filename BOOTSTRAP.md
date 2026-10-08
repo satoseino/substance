@@ -118,44 +118,6 @@ brew install ascending-llc/jarvis/jarvis-registry
 
 Then follow the steps listed in the Homebrew formulae caveats.
 
-## Set Up GPG to Sign Git Commits
-
-Install `gnupg` and `pinentry-mac`. The former is the GPG software while the latter is a GUI for prompting for passphrases.
-
-```bash
-brew install gnupg pinentry-mac
-echo "pinentry-program $(which pinentry-mac)" >>  ~/.gnupg/gpg-agent.conf
-```
-
-Restart `gpg-agent`.
-
-```bash
-gpg-connect-agent reloadagent /bye
-```
-
-Enter GPG interactive mode by `gpg --card-edit`, and then enter the `fetch` and `quit` command in order.
-The outputs would be something like below.
-
-```
-gpg/card> fetch
-gpg: requesting key from 'https://github.com/satoseino.gpg'
-gpg: key 41996E9C463CE073: public key "Sato Seinosuke (Commit-signing for GitHub) <72355409+satoseino@users.noreply.github.com>" imported
-gpg: Total number processed: 1
-gpg:               imported: 1
-```
-
-Then use `gpg --list-secret-keys` to confirm that the keys have been fetched.
-The outputs should be something like below.
-
-```
-[keyboxd]
----------
-sec>  rsa3072 2026-09-26 [SC]
-      E85F342A435382B5DB8C10C941996E9C463CE073
-      Card serial no. = 0006 27538718
-uid           [ unknown] Sato Seinosuke (Commit-signing for GitHub) <72355409+satoseino@users.noreply.github.com>
-```
-
 ## Set Up `terminal-notifier` for Claude Code Notifications
 
 This repo wires `bin/claude-notify` into Claude Code's global `Notification` hook (via the symlinked
