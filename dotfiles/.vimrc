@@ -43,4 +43,10 @@ set bg=dark
 
 " Make <leader> key match NeoVim
 let mapleader = " "
+
+" Use the system clipboard for yank, delete, change, and put (matches NvChad's
+" clipboard=unnamedplus; on macOS the * and + registers are the same)
+if has('clipboard')
+  set clipboard=unnamed
+endif
 " ----------------------------------------------------------------------------

@@ -1,13 +1,6 @@
 " ----------------------------------------------------------------------------
 " Autocommands
 " ----------------------------------------------------------------------------
-" Sync y-yanks to the system clipboard
-
-augroup yank_to_clipboard
-  autocmd!
-  autocmd TextYankPost * if v:event.operator ==# 'y' | call setreg('*', v:event.regcontents) | endif
-augroup END
-" ----------------------------------------------------------------------------
 " Set extension name for Bash scripts
 
 augroup ShellScriptFileType
