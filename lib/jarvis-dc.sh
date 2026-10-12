@@ -14,13 +14,13 @@ USAGE: jarvis-dc [-h] [SUBCOMMAND]
 
 SUBCOMMANDS:
     up    [-n|-s] [--local-db]  docker compose up with the right options
-    down  [--local-db]          docker compose down with the right options
+    down                        docker compose down with the right options
     logs                        docker logs -f against a container
 
 OPTIONS:
     -h                          Show this help message
 
-    --local-db (up/down)        Use local Mongo/Redis/Weaviate containers instead of the default EKS port-forwarded ones
+    --local-db (up)             Use local Mongo/Redis/Weaviate containers instead of the default EKS port-forwarded ones
 EOF
 
     return 0
@@ -71,7 +71,7 @@ EOF
       esac
     done
 
-    local -a args=("-f" "$compose_file" "--profile" "full" "up" "-d")
+    local -a args=("-f" "$compose_file" "--profile" "full" "up" "-d" "--remove-orphans")
 
     if [[ "$build_mode" == "selective" ]]; then
       mapfile -t services < <(
@@ -132,36 +132,24 @@ EOF
   down)
     shift 1
 
-    local compose_file="docker-compose.no-db.yml"
-
-    while (($# > 0)); do
-      case "$1" in
-      -h)
-        cat <<'EOF'
-Usage: jarvis-dc down [--local-db] [-h]
+    if (($# > 0)) && [[ $1 == "-h" ]]; then
+      cat <<'EOF'
+Usage: jarvis-dc down [-h]
 
 docker compose down with the right options.
 
 OPTIONS:
-    --local-db    Use local Mongo/Redis/Weaviate containers instead of the default EKS port-forwarded ones
-    -h            Show this help message
+    -h          Show this help message
 EOF
 
-        return 0
-        ;;
-      --local-db)
-        compose_file="docker-compose.sei.yml"
-        shift 1
-        ;;
-      *)
-        sei::log_error "Unknown option $1"
+      return 0
+    elif (($# > 0)); then
+      sei::log_error "Unknown option $1"
 
-        return 1
-        ;;
-      esac
-    done
+      return 1
+    fi
 
-    docker compose -f "$compose_file" --profile full down
+    docker compose -f docker-compose.sei.yml --profile full down --remove-orphans
 
     unset AWS_SESSION_TOKEN && unset AWS_SECRET_ACCESS_KEY && unset AWS_ACCESS_KEY_ID && unset AWS_PROFILE && unset AWS_CREDENTIAL_EXPIRATION
     ;;
@@ -216,14 +204,8 @@ _sei_jarvis_dc::complete() {
     compgen -V COMPREPLY -W "up down logs" -- "$2"
 
     return 0
-  elif ((COMP_CWORD >= 2)) && [[ ${COMP_WORDS[1]} == @(up|down) ]]; then
-    local -a flags remaining=()
-
-    if [[ ${COMP_WORDS[1]} == "up" ]]; then
-      flags=("-n" "-s" "--local-db")
-    else
-      flags=("--local-db")
-    fi
+  elif ((COMP_CWORD >= 2)) && [[ ${COMP_WORDS[1]} == "up" ]]; then
+    local -a flags=("-n" "-s" "--local-db") remaining=()
 
     if ((COMP_CWORD == 2)); then
       flags+=("-h")
@@ -244,7 +226,7 @@ _sei_jarvis_dc::complete() {
     compgen -V COMPREPLY -W "${remaining[*]}" -- "$2"
 
     return 0
-  elif ((COMP_CWORD == 2)) && [[ $3 == "logs" ]]; then
+  elif ((COMP_CWORD == 2)) && [[ $3 == @(down|logs) ]]; then
     COMPREPLY=("-h")
 
     return 0
