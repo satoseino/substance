@@ -149,6 +149,8 @@ EOF
       return 1
     fi
 
+    # `up` may have used either file, and each maps to a different compose project
+    docker compose -f docker-compose.no-db.yml --profile full down --remove-orphans
     docker compose -f docker-compose.sei.yml --profile full down --remove-orphans
 
     unset AWS_SESSION_TOKEN && unset AWS_SECRET_ACCESS_KEY && unset AWS_ACCESS_KEY_ID && unset AWS_PROFILE && unset AWS_CREDENTIAL_EXPIRATION
