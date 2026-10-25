@@ -1,4 +1,8 @@
 {
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "hooks": {
     "Notification": [
       {
@@ -42,10 +46,6 @@
         ]
       }
     ]
-  },
-  "attribution": {
-    "commit": "",
-    "pr": ""
   },
   "enabledPlugins": {
     "deploy-on-aws@agent-plugins-for-aws": true
