@@ -75,6 +75,8 @@ brew install fzf bat tree jq yq git \
   gh shellcheck pre-commit \
   mongosh redis hugo
 
+brew install satoseino/tap/cli-toolkit
+
 curl -fsSL https://awscli.amazonaws.com/v2/install.sh | bash
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -90,10 +92,6 @@ Then
 ## Install Go Executables
 
 ```bash
-go install github.com/satoseino/cli-toolkit/cmd/toolkit@latest
-go install github.com/satoseino/cli-toolkit/cmd/toolkit-assume-role@latest
-go install github.com/satoseino/cli-toolkit/cmd/toolkit-serve-static@latest
-go install github.com/satoseino/cli-toolkit/cmd/toolkit-show-md@latest
 go install mvdan.cc/sh/v3/cmd/shfmt@latest
 go install golang.org/x/tools/cmd/godoc@latest
 go install golang.org/x/pkgsite
@@ -112,7 +110,6 @@ cargo install --locked tree-sitter-cli
 `jarvis-registry` MCP server; it also syncs additional Claude Code skills.
 
 ```bash
-brew tap ascending-llc/jarvis
 brew install ascending-llc/jarvis/jarvis-registry
 ```
 
