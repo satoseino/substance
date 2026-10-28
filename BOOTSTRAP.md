@@ -75,7 +75,7 @@ brew install fzf bat tree jq yq git \
   gh shellcheck pre-commit \
   mongosh redis hugo
 
-brew install satoseino/tap/cli-toolkit
+brew install satoseino/tap/cli-toolkit satoseino/tap/gelato
 
 curl -fsSL https://awscli.amazonaws.com/v2/install.sh | bash
 
