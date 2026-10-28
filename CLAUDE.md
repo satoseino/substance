@@ -20,7 +20,7 @@ languages, and CLIs are assumed to be present.
 ```
 
 `pre-commit` is configured in `.pre-commit-config.yaml` with two hooks:
-- **tartufo** — secret scanning on every commit.
+- **gelato** — secret scanning on every commit.
 - **shell-cmd-on-change** — automatically re-runs `set-up.sh` on `post-merge` if tracked files changed.
 
 ## Shell version

@@ -1,11 +1,8 @@
-default_language_version:
-  python: python3.14
-
 repos:
-  - repo: https://github.com/godaddy/tartufo
-    rev: "v6.0.0"
+  - repo: https://github.com/satoseino/gelato
+    rev: "v0.1.0"
     hooks:
-      - id: tartufo
+      - id: gelato
 
   - repo: https://github.com/satoseino/shell-cmd-on-change
     rev: "2.1.0"
