@@ -30,8 +30,11 @@ vim.api.nvim_create_autocmd("FileType", {
     map("n", "\\ll", function()
       local curr_file = vim.fn.expand "%:p"
 
-      vim.fn.system("toolkit-show-md " .. curr_file .. " >/dev/null 2>&1")
-    end, { buffer = true, desc = "Convert and show the current Markdown file in browswer." })
+      local out = vim.fn.system { "toolkit-show-md", curr_file }
+      if vim.v.shell_error ~= 0 then
+        vim.notify(out, vim.log.levels.ERROR)
+      end
+    end, { buffer = true, desc = "Convert and show the current Markdown file in browser." })
   end,
 })
 
