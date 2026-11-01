@@ -11,12 +11,18 @@ Usage: claude-notify [-h]
 
 Send a macOS notification for a Claude Code hook event, with the
 worktree directory name and current git branch folded into the message.
-Reads Claude Code's hook JSON payload from stdin.
+Reads Claude Code's hook JSON payload from stdin. No-op on non-macOS
+platforms.
 
 OPTIONS:
     -h    Show this help message
 EOF
 
+    return 0
+  fi
+
+  # terminal-notifier is macOS-only; skip silently elsewhere (e.g. WSL2).
+  if [[ "$(uname -s)" != "Darwin" ]]; then
     return 0
   fi
 

@@ -12,6 +12,9 @@ so edits here take effect immediately for the running shell (after re-sourcing t
 `./set-up.sh` is run for the first time on a new machine. Consult it when in doubt about what tools,
 languages, and CLIs are assumed to be present.
 
+`BOOTSTRAP-WSL.md` is the counterpart for the `fedora` host: a Fedora distro on WSL2 (Windows 11), with
+dnf as the primary package manager and Homebrew on Linux (`/home/linuxbrew/.linuxbrew`) for the rest.
+
 ## Common commands
 
 ```bash
