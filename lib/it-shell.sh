@@ -71,6 +71,27 @@ _sei_it_shell::set_path() {
       export HOMEBREW_NO_ASK=1
 
       eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+      export HOMEBREW_NO_ASK=1
+
+      eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
+
+      # `brew shellenv` prepends Homebrew's bin dirs, so the copies Homebrew pulls in as
+      # dependencies (python3, node, ncurses tools, ...) would shadow the dnf-installed ones.
+      # Move them to just after /usr/bin, so that dnf packages win and Homebrew only supplies
+      # what dnf doesn't (while still taking precedence over the appended Windows PATH).
+      local brew_path="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin"
+
+      PATH="${PATH#"$brew_path":}"
+
+      if [[ ":$PATH:" == *":/usr/bin:"* ]]; then
+        PATH=":$PATH:"
+        PATH="${PATH/:\/usr\/bin:/:/usr/bin:$brew_path:}"
+        PATH="${PATH#:}"
+        PATH="${PATH%:}"
+      else
+        PATH="$PATH:$brew_path"
+      fi
     fi
   fi
 }
@@ -103,21 +124,22 @@ _sei_it_shell::enable_completion() {
 
     source /opt/local/share/git/git-prompt.sh
   elif [[ "$(hostname)" == "fedora" ]]; then
-    # On Fedora Server, this file doesn't seem to be automatically sourced.
+    # The dnf-installed bash-completion is only loaded via /etc/bashrc, which our .bashrc doesn't source.
     source /etc/profile.d/bash_completion.sh
 
     source /usr/share/git-core/contrib/completion/git-prompt.sh
 
-    # Activate completion for uv and uvx.
-    eval "$(uv generate-shell-completion bash)"
-    eval "$(uvx --generate-shell-completion bash)"
+    # Homebrew on Linux: bash-completion comes from dnf, which doesn't look into Homebrew's
+    # compat dir, so source the completions shipped by formulae (fnm, toolkit, ...) directly.
+    local completion
 
-    PS1='\[\033[94m\]\u@\h: \[\033[96m\]\w\[\033[93m\]$(__git_ps1 " (%s)")\n$(if [ $? -eq 0 ]; then echo -e "\[\033[92m\]\U2714"; else echo -e "\[\033[91m\]\U2718"; fi)\[\033[0m\]\$ '
-
-    return 0
+    for completion in /home/linuxbrew/.linuxbrew/etc/bash_completion.d/*; do
+      [[ -r "$completion" ]] && source "$completion"
+    done
   fi
 
-  # Activate completion manually for AWS CLI because it's not installed by brew or port on macOS.
+  # Activate completion manually for AWS CLI because it comes from the official installer,
+  # not from brew, port, or dnf, and so doesn't register a completion.
   complete -C aws_completer aws
 
   PS1='\[\033[94m\]\u@\t: \[\033[96m\]\w\[\033[93m\]$(__git_ps1 " (%s)")\n$(if [ $? -eq 0 ]; then echo -e "\[\033[92m\]\U2714"; else echo -e "\[\033[91m\]\U2718"; fi)\[\033[0m\]\$ '

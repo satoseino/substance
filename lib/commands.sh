@@ -26,6 +26,16 @@ set-aws-region() {
   export AWS_REGION=$region
 }
 
+pcwd() {
+  # Copy the current working directory to the system clipboard.
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    printf "%s" "$PWD" | pbcopy
+  else
+    # On WSL2, WSLg syncs the Wayland clipboard with the Windows clipboard.
+    printf "%s" "$PWD" | wl-copy
+  fi
+}
+
 ls-aws-env() {
   printenv | grep '^AWS'
 }
