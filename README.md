@@ -2,7 +2,7 @@
 
 ## Getting started
 
-- Install dependencies according to [BOOTSTRAP.md](./BOOTSTRAP.md).
+- Install dependencies according to [BOOTSTRAP.md](./BOOTSTRAP.md) or [BOOTSTRAP-WSL.md](./BOOTSTRAP-WSL.md).
 
 - Clone `substance` repo and run set-up script.
 

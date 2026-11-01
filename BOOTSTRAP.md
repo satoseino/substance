@@ -1,4 +1,4 @@
-# Bootstrap
+# Bootstrap macOS
 
 ## Introduction
 

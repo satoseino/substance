@@ -1,4 +1,4 @@
-# Bootstrap
+# Bootstrap Fedora on WSL2
 
 ## Introduction
 
