@@ -4,21 +4,48 @@ set -eu -o pipefail
 
 source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/../lib/utils.sh"
 
-_clean() {
-  if [[ "$(uname -s)" != "Darwin" ]]; then
-    sei::log_error "Only use this function on macOS."
+# Convert a DURATION like 90s, 30m, 12h, 1d, 2w (or a bare number of days) into whole minutes,
+# rounding up. `find -mmin` is the only age test with sub-day precision that both GNU find (Linux)
+# and BSD find (macOS) accept.
+_duration_to_minutes() {
+  if ! [[ "$1" =~ ^([[:digit:]]+)([smhdw]?)$ ]]; then
+    sei::log_error "Invalid DURATION '${1}'. Expected a number with an optional unit of s, m, h, d or w."
 
     return 1
   fi
 
-  if [[ -n "${FNM_MULTISHELL_PATH:+x}" ]]; then
-    sei::log_info "Cleaning up the $HOME/.local/state/fnm_multishells directory of symlinks older than ${1}."
+  local num="${BASH_REMATCH[1]}"
 
-    if [[ -z "$1" ]]; then
-      find "$(dirname "${FNM_MULTISHELL_PATH}")/" -type l -name '*_*' -exec rm {} +
-    else
-      find "$(dirname "${FNM_MULTISHELL_PATH}")/" -type l -name '*_*' -mtime "+${1}" -exec rm {} +
-    fi
+  case "${BASH_REMATCH[2]}" in
+  s) echo $(((num + 59) / 60)) ;;
+  m) echo "$num" ;;
+  h) echo $((num * 60)) ;;
+  d | '') echo $((num * 60 * 24)) ;;
+  w) echo $((num * 60 * 24 * 7)) ;;
+  esac
+}
+
+_clean() {
+  if [[ -z "${FNM_MULTISHELL_PATH:+x}" ]]; then
+    sei::log_error "The FNM_MULTISHELL_PATH environment variable is not set."
+
+    return 1
+  fi
+
+  local fnm_multishell_dir
+  fnm_multishell_dir="$(dirname "$FNM_MULTISHELL_PATH")"
+
+  if [[ -z "$1" ]]; then
+    sei::log_info "Cleaning up all symlinks in the ${fnm_multishell_dir} directory."
+
+    find "${fnm_multishell_dir}/" -type l -name '*_*' -exec rm {} +
+  else
+    local minutes
+    minutes="$(_duration_to_minutes "$1")"
+
+    sei::log_info "Cleaning up the ${fnm_multishell_dir} directory of symlinks older than ${1}."
+
+    find "${fnm_multishell_dir}/" -type l -name '*_*' -mmin "+${minutes}" -exec rm {} +
   fi
 }
 
@@ -52,7 +79,10 @@ USAGE: fnm-links [-h] [SUBCOMMAND] [-N] [DURATION]
 SUBCOMMANDS:
     list  [-N]          List existing symlinks. If N is an integer, list the newest N links.
     count               Count the number of existing symlinks for fnm.
-    clean [DURATION]    Clean up fnm symlinks older than DURATION. Defaults to 1d.
+    clean [DURATION]    Clean up fnm symlinks older than DURATION (e.g. 90s, 30m, 12h, 1d, 2w;
+                        a bare number means days). Without DURATION, remove ALL symlinks,
+                        including those of still-open shells - run it right before closing
+                        every shell, or `exec bash` in any shell kept open afterwards.
 
 OPTIONS:
     -h                  Show this help message

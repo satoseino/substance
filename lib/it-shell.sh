@@ -158,16 +158,26 @@ _sei_it_shell::shell_integration() {
   fi
 }
 
-_sei_it_shell::activate_fnm() {
-  if [[ -z "${SEI_SHELL_INIT+x}" ]]; then
-    eval "$(fnm env --use-on-cd --shell bash)"
+_sei_it_shell::fnm_env() {
+  # fnm puts its multishell symlinks under $XDG_RUNTIME_DIR when it is set. On WSL that dir can be
+  # missing: if systemd boots slower than WSL's ~10s timeout, no logind session is created, so
+  # /run/user/<uid> never appears even though WSL still exports XDG_RUNTIME_DIR. Hide the var from
+  # fnm in that case so it falls back to $HOME/.local/state/fnm_multishells.
+  if [[ -n "${XDG_RUNTIME_DIR:-}" && ! -w "$XDG_RUNTIME_DIR" ]]; then
+    env -u XDG_RUNTIME_DIR fnm env --use-on-cd --shell bash
   else
+    fnm env --use-on-cd --shell bash
+  fi
+}
+
+_sei_it_shell::activate_fnm() {
+  if [[ -n "${SEI_SHELL_INIT+x}" ]]; then
     # Trim the duplicate fnm item in the middle of PATH if exists.
     PATH=$(sed -E -e 's/:[^:]+fnm_multishells[^:]+//' -e 's/[^:]+fnm_multishells[^:]+://' <<<"$PATH")
-
-    # Then activate fnm again, for the use-on-cd effect.
-    eval "$(fnm env --use-on-cd --shell bash)"
   fi
+
+  # (Re-)activate fnm; on re-init this restores the use-on-cd effect.
+  eval "$(_sei_it_shell::fnm_env)"
 }
 
 _sei_it_shell::set_man_pager() {
