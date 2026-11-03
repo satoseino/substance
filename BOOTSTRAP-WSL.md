@@ -54,7 +54,8 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 Then
 - install at least one LTS Nodejs version via `fnm`;
-- login to GitHub via `gh auth login`;
+- login to GitHub via `gh auth login`, then move the `[credential ...]` sections it appends to `~/.gitconfig` into
+  `~/.gitconfig.override` (untracked; `~/.gitconfig` is a symlink into this repo, so don't commit them);
 - update AWS CLI v2 via `aws update` when needed.
 
 ## Install Go Executables
