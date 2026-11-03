@@ -118,7 +118,8 @@ appendWindowsPath = false
 
 `appendWindowsPath = false` keeps the Windows `PATH` out of the Linux `PATH`. This avoids slow command lookups
 across `/mnt/c` and Windows binaries shadowing Linux ones. Windows executables can still be run by full path
-(e.g. `/mnt/c/WINDOWS/system32/clip.exe`).
+(e.g. `/mnt/c/WINDOWS/system32/clip.exe`). One side effect: `xdg-open` can no longer find `explorer.exe`, so
+`profile/fedora.bashrc` sets `BROWSER=wsl-browser` to open URLs and files on the Windows side.
 
 Exit Fedora. In PowerShell, shutdown WSL2.
 

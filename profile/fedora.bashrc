@@ -1,6 +1,9 @@
 # ------------------------------------------------------------------------
 # Environment variables.
 
+# xdg-open can't find explorer.exe (appendWindowsPath = false), so route it through bin/wsl-browser.
+export BROWSER=wsl-browser
+
 # ------------------------------------------------------------------------
 # Aliases.
 

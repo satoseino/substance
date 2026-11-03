@@ -1,0 +1,19 @@
+_sei_wsl_browser::complete() {
+  if ((COMP_CWORD == 1)) && [[ $2 == "-" ]]; then
+    COMPREPLY=("-h")
+
+    return 0
+  elif ((COMP_CWORD == 1)); then
+    compopt -o default
+
+    COMPREPLY=()
+
+    return 0
+  fi
+
+  COMPREPLY=()
+
+  return 0
+} && complete -o bashdefault -F _sei_wsl_browser::complete wsl-browser
+
+# vim: set ft=bash :
