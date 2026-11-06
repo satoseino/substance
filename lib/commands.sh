@@ -74,10 +74,6 @@ gsh() {
   git show --name-only "$@"
 }
 
-kdiff() {
-  git diff --no-index "$1" "$2"
-}
-
 gtc() {
   local profile=coverage.out
 
@@ -96,6 +92,16 @@ enter-work-mode() {
   sei::bash_post_init
 
   acmd -d
+}
+
+sei-diff() {
+  git diff --no-index "$1" "$2"
+}
+
+sei-ip() {
+  curl ifconfig.me
+
+  printf "\n"
 }
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
