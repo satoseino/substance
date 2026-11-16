@@ -47,6 +47,12 @@ require("lazy").setup({
 
   install = { colorscheme = { "nvchad" } },
 
+  -- trim `nvim --headless "+Lazy! ..."` output (e.g. the post-merge `nvim-lazy-restore` hook)
+  headless = {
+    task = false, -- no "Running task" / "Finished task" lines
+    process = false, -- no streamed git output; final output per command is still logged
+  },
+
   ui = {
     icons = {
       ft = "",
