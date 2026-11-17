@@ -71,11 +71,18 @@ EOF
       esac
     done
 
-    local -a args=("-f" "$compose_file" "--profile" "full" "up" "-d" "--remove-orphans")
+    # ${VAR} interpolation in the compose file reads only the shell and .env unless --env-file is given;
+    # env_file: in the compose file sets container environment and doesn't affect interpolation.
+    local -a compose_opts=("-f" "$compose_file")
+    if [[ "$compose_file" == "docker-compose.no-db.yml" ]]; then
+      compose_opts+=("--env-file" ".env.no-db")
+    fi
+
+    local -a args=("${compose_opts[@]}" "--profile" "full" "up" "-d" "--remove-orphans")
 
     if [[ "$build_mode" == "selective" ]]; then
       mapfile -t services < <(
-        docker compose -f "$compose_file" --profile full config --format json 2>/dev/null |
+        docker compose "${compose_opts[@]}" --profile full config --format json 2>/dev/null |
           jq -r '.services | to_entries[] | select(.value.build != null) | .key' |
           fzf -m --height=50% --layout=reverse
       )
@@ -124,7 +131,7 @@ EOF
     fi
 
     if [[ "$build_mode" == "selective" ]]; then
-      docker compose -f "$compose_file" --profile full build "${services[@]}"
+      docker compose "${compose_opts[@]}" --profile full build "${services[@]}"
     fi
 
     docker compose "${args[@]}"
@@ -150,7 +157,7 @@ EOF
     fi
 
     # `up` may have used either file, and each maps to a different compose project
-    docker compose -f docker-compose.no-db.yml --profile full down --remove-orphans
+    docker compose -f docker-compose.no-db.yml --env-file .env.no-db --profile full down --remove-orphans
     docker compose -f docker-compose.sei.yml --profile full down --remove-orphans
 
     unset AWS_SESSION_TOKEN && unset AWS_SECRET_ACCESS_KEY && unset AWS_ACCESS_KEY_ID && unset AWS_PROFILE && unset AWS_CREDENTIAL_EXPIRATION
