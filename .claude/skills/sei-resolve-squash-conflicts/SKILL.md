@@ -46,7 +46,11 @@ contains. The stacked branch's **own changes** — the only thing it should add 
   (ours) or `git cat-file --filters :3:<path>` (theirs) redirected into the file. Do not use
   `git show` for this: it prints the raw blob and skips checkout filters (Git LFS smudge, eol
   conversion, `ident`, `working-tree-encoding`).
-- Resolve conflicts only. Do not refactor, reformat, or "improve" code while resolving.
+- Resolve conflicts only. Do not refactor, reformat, or "improve" code while resolving. The one
+  exception is step 3: extending the stacked branch's own sweeping changes to the target's new code.
+- A file may be resolved by a small inline script (e.g. one that picks a side per conflict block
+  and applies a substitution), not only by hand edits; the conflict-marker grep before staging
+  still applies.
 
 ## Pre-flight check
 
@@ -57,7 +61,8 @@ ${CLAUDE_SKILL_DIR}/scripts/preflight "$old_pr"
 ```
 
 Continue only if the first line of stdout is exactly `PREFLIGHT: PASS`; take `OLD_TIP`, `BASE`,
-`FETCHED`, and the stacked branch's own commits (`OWN_COMMITS:`) from the lines that follow. On
+`FETCHED`, the stacked branch's own commits (`OWN_COMMITS:`), and the paths the target changed
+since `BASE` (`TARGET_CHANGES:`, `git diff --name-status` format) from the lines that follow. On
 anything else — a `PREFLIGHT: FAIL …` line, an `ERROR: …` message, or empty stdout — stop
 immediately and relay the output verbatim to the user; if stdout is empty, include any stderr.
 If the error indicates an authentication failure, also ask the user to authenticate.
@@ -67,11 +72,27 @@ If the error indicates an authentication failure, also ask the user to authentic
 1. **Inventory.** List conflicted paths with `git diff --name-only --diff-filter=U`, and note
    each one's conflict kind from `git status --porcelain` (content, modify/delete, add/add,
    rename). Re-running `git diff --name-only --diff-filter=U` at any point lists what is still
-   unresolved; resolution is complete when it is empty.
+   unresolved; resolution is complete when it is empty. Cross-reference `TARGET_CHANGES`: a
+   conflicted path missing from it is one the target has not changed since `BASE`, and the paths
+   in it are the only ones where the target can have brought in new code.
 2. **Resolve each conflicted path**, using `MERGE_HEAD` as the starting point:
    - Look at the stacked branch's own change to that path: `git diff "$BASE" HEAD -- <path>`.
    - If the stacked branch did not change the path, the conflict is purely original-vs-squashed
      old-base content: take `MERGE_HEAD`'s version (`git cat-file --filters :3:<path> > <path>`).
+   - If both sides have the file and the target did not change it since `BASE` (the path is
+     absent from `TARGET_CHANGES`; confirm with `git diff --quiet "$BASE" MERGE_HEAD -- <path>`),
+     `HEAD`'s version is already `BASE` + own changes: take it
+     (`git cat-file --filters :2:<path> > <path>`).
+   - If the path is a generated lockfile (e.g. `uv.lock`, `package-lock.json`, `poetry.lock`,
+     `Cargo.lock`) and both sides changed it, do not merge its hunks. Take `MERGE_HEAD`'s version,
+     resolve the manifests it is generated from first, then regenerate it with the project's lock
+     command in its minimal-update form, which keeps existing pins and only resolves what the
+     manifests changed: e.g. `uv lock`, `npm install --package-lock-only`, `poetry lock`
+     (Poetry 2.0+; `poetry lock --no-update` on 1.x), `cargo update --workspace`. Never use a
+     form that re-resolves everything (`poetry lock --regenerate`, `cargo generate-lockfile`,
+     `uv lock --upgrade`). Record a judgment call. If
+     regeneration fails (e.g. no network), keep `MERGE_HEAD`'s version, stage it, and continue;
+     record the failure, with its error and the lock command to run, for the final summary.
    - Otherwise, start from `MERGE_HEAD`'s version and re-apply only the stacked branch's own
      hunks on top of it.
    - If a stacked-branch hunk touches code that `MERGE_HEAD` changed in a different way (e.g.
@@ -89,30 +110,50 @@ If the error indicates an authentication failure, also ask the user to authentic
        such file or its version differs from `MERGE_HEAD`'s, record a judgment call.
    - Before staging the path, grep it for `^(<<<<<<<|\|\|\|\|\|\|\||=======|>>>>>>>)( |$)`; it
      must contain no conflict markers. Then `git add <path>`.
-3. **No leftover markers or stray edits.** `git diff --cached --check MERGE_HEAD` must report no
+3. **Extend sweeping own changes to the target's new code.** If the stacked branch's own changes
+   include a rename, a library or API migration, or another mechanical replacement applied across
+   the codebase (e.g. `import httpx` → `import httpx2`, a renamed function or test), the target may
+   have added new uses of the old form, both in conflicted paths and in auto-merged ones that no
+   conflict flagged. Grep the working-tree version of every path in `TARGET_CHANGES` (skip deleted
+   ones) for the old symbols, module names and identifiers, including in comments and docstrings.
+   Apply the same replacement to each target-introduced occurrence, re-stage the path, and record
+   each one as a judgment call. Skip this step if the own changes contain no such sweeping change.
+4. **No leftover markers or stray edits.** `git diff --cached --check MERGE_HEAD` must report no
    `leftover conflict marker` lines, and `git diff` (working tree vs. index) must be empty —
    anything there is an unstaged edit that the merge would not include. `--check` also reports
    whitespace errors and exits non-zero for them. Those come from the stacked branch's own
    content: they do not block, so leave them as they are.
-4. **Verify the stacked branch's own changes survived.** Compare:
+5. **Verify the stacked branch's own changes survived.** Compare:
    - expected: `git diff "$BASE" HEAD`
    - actual: `git diff --cached MERGE_HEAD` (target vs. what `git merge --continue` will commit)
+
+   Run `${CLAUDE_SKILL_DIR}/scripts/verify-own-changes "$BASE"`. It prints `VERIFY: MATCH`, or
+   `VERIFY: MISMATCH` followed by one `<kind>\t<path>` line per path where the two diffs differ
+   (`only-expected`, `only-actual`, `differs`, `binary-differs`; run it with `-h` for their
+   meaning), or `ERROR: …` — on an error, fall back to comparing the two diffs directly. It
+   compares changed lines together with one line of context, so a hunk that landed in the
+   wrong place is reported as `differs`, and so is a hunk next to a line `MERGE_HEAD` changed.
+   For each listed text path, compare `git diff "$BASE" HEAD -- <path>` with
+   `git diff --cached MERGE_HEAD -- <path>`. A `binary-differs` path is a binary file whose
+   staged blob is not `HEAD`'s, i.e. the stacked branch's version of it was not kept.
 
    Every hunk in *expected* should appear in *actual*, and every hunk in *actual* should trace
    back to *expected*. Investigate each mismatch — including in auto-merged files that never
    conflicted (a typical one: old-base code that a review fix later removed, resurrected by an
    auto-merge). Acceptable mismatches are those caused by `MERGE_HEAD` having changed the
    surrounding code, or by an *expected* hunk that `MERGE_HEAD` already contains (e.g. the
-   stacked branch had earlier merged the target) — record them; anything else is a resolution
-   mistake — fix it, re-stage, and re-check from step 3.
-5. **Run the project's checks.** Look for the project's own lint, typecheck, and test commands
+   stacked branch had earlier merged the target), by a regenerated lockfile (or one left at
+   `MERGE_HEAD`'s version because regeneration failed), or by a step 3
+   extension — record them; anything else is a resolution mistake — fix it, re-stage, and
+   re-check from step 4.
+6. **Run the project's checks.** Look for the project's own lint, typecheck, and test commands
    (e.g. in `CLAUDE.md`, `README`, `Makefile`, `package.json`, `pyproject.toml` task runners)
    and run them, including the full test suite. Use check-only modes (no `--fix`, `--write`,
    etc.); the checks must leave `git diff` empty. For each failure, determine whether it stems
-   from the resolution — if so, fix the resolution, re-stage, re-run steps 3–4, and re-run the
+   from the resolution — if so, fix the resolution, re-stage, re-run steps 4–5, and re-run the
    checks. Do not check out, stash, or create worktrees to compare against `MERGE_HEAD` or
    `HEAD`; judge by reasoning instead. A failure is unrelated if it lies in code that neither
-   the stacked branch's own changes, the conflicted paths, nor the step 4 mismatches touch, or
+   the stacked branch's own changes, the conflicted paths, nor the step 5 mismatches touch, or
    if it needs an unavailable service — leave it and report it with that reasoning. If
    no checks can be found, or a check cannot be run, say so in the summary rather than
    working around it.
@@ -124,10 +165,13 @@ Report to the user:
 - PR `$old_pr`, `OLD_TIP` and `BASE` (short SHAs), whether the fetch was needed, and the
   stacked branch's own commits.
 - One line per conflicted path: the conflict kind and how it was resolved (took target's
-  version / re-applied own hunks / deleted / ...).
+  version / took ours (target unchanged) / re-applied own hunks / regenerated / deleted / ...).
 - Every **judgment call**, with what each side had and what was chosen and why.
-- The result of the step 4 verification, listing any accepted mismatches.
-- The step 5 results: each check run and its outcome, any failures judged unrelated to the
+- Any lockfile whose regeneration failed: the error, and that it holds `MERGE_HEAD`'s version
+  until the user runs the lock command (give it).
+- The step 3 result: the sweeping changes extended to target code (or that there were none).
+- The result of the step 5 verification, listing any accepted mismatches.
+- The step 6 results: each check run and its outcome, any failures judged unrelated to the
   resolution and the reasoning behind each, and any check that could not be found or run.
 - A reminder that the resolution is fully staged but the merge is not concluded: the user should
   review (e.g. `git diff --cached MERGE_HEAD`) and run `git merge --continue`.

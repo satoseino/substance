@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+set -eu -o pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: verify-own-changes [-h] <base>
+
+Checks that a staged squash-conflict resolution carries exactly the stacked
+branch's own changes. Per path, compares the hunk bodies (`+`/`-` lines with one
+line of context on each side, plus mode changes; file headers and hunk headers
+excluded, so line numbers do not matter) of
+
+    expected: git diff <base> HEAD
+    actual:   git diff --cached MERGE_HEAD
+
+and lists every path where they differ. The context line makes a changed line
+that lands in a different place compare unequal; it also makes a path compare
+unequal when MERGE_HEAD changed a line next to an own change. Rename detection
+is off on both sides, so a rename shows as a delete plus an add. A binary path
+changed on both sides is compared by blob instead: its staged blob must equal
+HEAD's.
+
+Except with `-h`, prints one of the following to stdout for consumption by an LLM:
+
+    VERIFY: MATCH
+
+    VERIFY: MISMATCH
+    <kind>	<path>
+    ...
+
+    ERROR: <reason>
+
+where <kind> is one of:
+    only-expected   the path has own changes, but the staged result does not differ from MERGE_HEAD there
+    only-actual     the staged result differs from MERGE_HEAD there, but the path has no own changes
+    differs         both sides change the path, with different hunk bodies
+    binary-differs  both sides change the binary path, and its staged blob differs from HEAD's
+
+Always exits 0; the outcome is conveyed by stdout alone.
+
+ARGUMENTS:
+    base        BASE from preflight: the last old-base commit the stacked branch contains
+
+OPTIONS:
+    -h          Show this help message
+EOF
+}
+
+# Hunk bodies of one path: the `+`/`-` lines inside hunks with one line of context, plus the
+# mode and binary lines of the extended header. File headers and hunk headers are left out.
+# Header lines are told apart by position (before the first `@@`), so removed content such as
+# `-- comment` is kept. With pipefail, a `git diff` failure is the function's exit status.
+changed_lines() {
+  git diff --no-ext-diff --no-textconv --no-color --no-renames --no-relative -U1 "$@" |
+    awk '
+      /^diff --git / { in_hunk = 0; next }
+      /^@@/          { in_hunk = 1; next }
+      in_hunk && /^[-+ \\]/ { print; next }
+      !in_hunk && /^(old mode|new mode|new file mode|deleted file mode|Binary files) / { print }
+    '
+}
+
+# Prints the object name of a path's blob in the given tree-ish (`HEAD`, or empty for the
+# index), or nothing if the path is absent there.
+blob_of() {
+  git rev-parse -q --verify "$1:$2" 2>/dev/null || true
+}
+
+main() {
+  if (($# > 0)) && [[ $1 == "-h" ]]; then
+    usage
+
+    return 0
+  fi
+
+  if (($# != 1)); then
+    echo "ERROR: verify-own-changes takes exactly one positional argument: <base>"
+
+    return 0
+  fi
+
+  local base=$1
+
+  # Paths from `--name-only` are relative to the top level and fed back as literal pathspecs.
+  export GIT_LITERAL_PATHSPECS=1
+  local toplevel
+  if ! toplevel=$(git rev-parse --show-toplevel 2>&1) || ! cd "$toplevel"; then
+    echo "ERROR: cannot enter the repository's top level: $toplevel"
+
+    return 0
+  fi
+
+  if ! stderr_file=$(mktemp 2>&1); then
+    echo "ERROR: $stderr_file"
+
+    return 0
+  fi
+  trap 'rm -f "$stderr_file"' EXIT
+
+  if ! git rev-parse -q --verify MERGE_HEAD >/dev/null 2>"$stderr_file"; then
+    echo "ERROR: no merge in progress (MERGE_HEAD missing) $(<"$stderr_file")"
+
+    return 0
+  fi
+
+  if ! git rev-parse -q --verify "$base^{commit}" >/dev/null 2>"$stderr_file"; then
+    echo "ERROR: '$base' is not a commit $(<"$stderr_file")"
+
+    return 0
+  fi
+
+  if [[ -n $(git diff --name-only --diff-filter=U) ]]; then
+    echo "ERROR: unresolved paths remain; resolve and stage them first"
+
+    return 0
+  fi
+
+  local expected_paths actual_paths
+  if ! expected_paths=$(git diff --no-renames --no-relative --name-only -z "$base" HEAD 2>"$stderr_file" | tr '\0' '\n'); then
+    echo "ERROR: $(<"$stderr_file")"
+
+    return 0
+  fi
+  if ! actual_paths=$(git diff --cached --no-renames --no-relative --name-only -z MERGE_HEAD 2>"$stderr_file" | tr '\0' '\n'); then
+    echo "ERROR: $(<"$stderr_file")"
+
+    return 0
+  fi
+
+  local mismatches="" path in_expected in_actual expected_lines actual_lines
+  while IFS= read -r path; do
+    [[ -z $path ]] && continue
+
+    in_expected=no
+    in_actual=no
+    grep -qxF -- "$path" <<<"$expected_paths" && in_expected=yes
+    grep -qxF -- "$path" <<<"$actual_paths" && in_actual=yes
+
+    if [[ $in_expected == yes && $in_actual == no ]]; then
+      mismatches+="only-expected	$path"$'\n'
+    elif [[ $in_expected == no && $in_actual == yes ]]; then
+      mismatches+="only-actual	$path"$'\n'
+    elif [[ $in_expected == yes && $in_actual == yes ]]; then
+      if ! expected_lines=$(changed_lines "$base" HEAD -- "$path" 2>"$stderr_file") ||
+        ! actual_lines=$(changed_lines --cached MERGE_HEAD -- "$path" 2>"$stderr_file"); then
+        echo "ERROR: git diff failed for '$path': $(<"$stderr_file")"
+
+        return 0
+      fi
+
+      if grep -q '^Binary files ' <<<"$expected_lines"$'\n'"$actual_lines"; then
+        if [[ "$(blob_of HEAD "$path")" != "$(blob_of "" "$path")" ]]; then
+          mismatches+="binary-differs	$path"$'\n'
+        fi
+      elif [[ $expected_lines != "$actual_lines" ]]; then
+        mismatches+="differs	$path"$'\n'
+      fi
+    fi
+  done < <(printf '%s\n%s\n' "$expected_paths" "$actual_paths" | sort -u)
+
+  if [[ -z $mismatches ]]; then
+    echo "VERIFY: MATCH"
+  else
+    echo "VERIFY: MISMATCH"
+    printf '%s' "$mismatches"
+  fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi
