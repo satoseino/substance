@@ -42,8 +42,10 @@ contains. The stacked branch's **own changes** — the only thing it should add 
   state-changing git command; concluding the merge is the user's job.
 - Do not use `git stash` during this skill, despite the global exception: stashing mid-merge
   removes `MERGE_HEAD` and silently ends the merge.
-- To take one side's version of a file, write it out with `git show :2:<path>` (ours) or
-  `git show :3:<path>` (theirs) redirected into the file.
+- To take one side's version of a file, write it out with `git cat-file --filters :2:<path>`
+  (ours) or `git cat-file --filters :3:<path>` (theirs) redirected into the file. Do not use
+  `git show` for this: it prints the raw blob and skips checkout filters (Git LFS smudge, eol
+  conversion, `ident`, `working-tree-encoding`).
 - Resolve conflicts only. Do not refactor, reformat, or "improve" code while resolving.
 
 ## Pre-flight check
@@ -69,7 +71,7 @@ If the error indicates an authentication failure, also ask the user to authentic
 2. **Resolve each conflicted path**, using `MERGE_HEAD` as the starting point:
    - Look at the stacked branch's own change to that path: `git diff "$BASE" HEAD -- <path>`.
    - If the stacked branch did not change the path, the conflict is purely original-vs-squashed
-     old-base content: take `MERGE_HEAD`'s version (`git show :3:<path> > <path>`).
+     old-base content: take `MERGE_HEAD`'s version (`git cat-file --filters :3:<path> > <path>`).
    - Otherwise, start from `MERGE_HEAD`'s version and re-apply only the stacked branch's own
      hunks on top of it.
    - If a stacked-branch hunk touches code that `MERGE_HEAD` changed in a different way (e.g.
@@ -77,14 +79,21 @@ If the error indicates an authentication failure, also ask the user to authentic
      lists them), merge the intent of both and record it as a **judgment call** for the summary.
    - modify/delete, `MERGE_HEAD` deleted the file: if the stacked branch made no own changes to
      it, delete it; otherwise keep the file and record a judgment call.
-   - modify/delete, `HEAD` deleted the file: if the deletion is the stacked branch's own change,
-     delete it; if `MERGE_HEAD`'s version also differs from `OLD_TIP`'s (changes from others),
-     record a judgment call.
+   - modify/delete, `HEAD` deleted the file:
+     - If the deletion is the stacked branch's own change (it appears in
+       `git diff "$BASE" HEAD -- <path>`), delete it. If `MERGE_HEAD`'s version also differs
+       from `OLD_TIP`'s (changes from others), record a judgment call.
+     - Otherwise the deletion came from the original old-base commits, yet `MERGE_HEAD` still
+       has the file (e.g. a review fix restored it, or the squash kept it). Take `MERGE_HEAD`'s
+       version, since the target is authoritative for old-base content. If `OLD_TIP` has no
+       such file or its version differs from `MERGE_HEAD`'s, record a judgment call.
    - Before staging the path, grep it for `^(<<<<<<<|\|\|\|\|\|\|\||=======|>>>>>>>)( |$)`; it
      must contain no conflict markers. Then `git add <path>`.
 3. **No leftover markers or stray edits.** `git diff --cached --check MERGE_HEAD` must report no
-   conflict markers, and `git diff` (working tree vs. index) must be empty — anything there is
-   an unstaged edit that the merge would not include.
+   `leftover conflict marker` lines, and `git diff` (working tree vs. index) must be empty —
+   anything there is an unstaged edit that the merge would not include. `--check` also reports
+   whitespace errors and exits non-zero for them. Those come from the stacked branch's own
+   content: they do not block, so leave them as they are.
 4. **Verify the stacked branch's own changes survived.** Compare:
    - expected: `git diff "$BASE" HEAD`
    - actual: `git diff --cached MERGE_HEAD` (target vs. what `git merge --continue` will commit)
