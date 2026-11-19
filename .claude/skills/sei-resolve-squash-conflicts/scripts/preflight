@@ -22,6 +22,8 @@ Except with `-h`, prints one of the following to stdout for consumption by an LL
     FETCHED=yes|no
     OWN_COMMITS:
     <git log --oneline BASE..HEAD>
+    TARGET_CHANGES:
+    <git diff --name-status --no-renames BASE MERGE_HEAD>
 
     PREFLIGHT: FAIL — <details>
 
@@ -145,12 +147,21 @@ EOF
     return 0
   fi
 
+  local target_changes
+  if ! target_changes=$(git diff --name-status --no-renames --no-relative "$base" MERGE_HEAD 2>"$stderr_file"); then
+    echo "ERROR: $(<"$stderr_file")"
+
+    return 0
+  fi
+
   echo "PREFLIGHT: PASS"
   echo "OLD_TIP=$old_tip"
   echo "BASE=$base"
   echo "FETCHED=$fetched"
   echo "OWN_COMMITS:"
   echo "$own_commits"
+  echo "TARGET_CHANGES:"
+  echo "$target_changes"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
