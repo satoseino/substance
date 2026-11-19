@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+
+set -eu -o pipefail
+
+main() {
+  if (($# > 0)) && [[ $1 == "-h" ]]; then
+    cat <<'EOF'
+Usage: preflight [-h] <old_pr>
+
+Pre-flight checks for resolving an in-progress merge on a stacked PR branch whose
+former base branch (the head branch of PR <old_pr>) was squash-merged into the
+merge target. Checks that a merge is in progress, resolves the PR's final head
+from `refs/pull/<old_pr>/head` on origin (fetching its objects only if they are
+not local — no ref, tag, or FETCH_HEAD is written, nothing is pruned), and
+computes BASE, the last old-base commit the current branch contains.
+
+Except with `-h`, prints one of the following to stdout for consumption by an LLM:
+
+    PREFLIGHT: PASS
+    OLD_TIP=<sha>
+    BASE=<sha>
+    FETCHED=yes|no
+    OWN_COMMITS:
+    <git log --oneline BASE..HEAD>
+
+    PREFLIGHT: FAIL — <details>
+
+    ERROR: <reason>
+
+Always exits 0; the outcome is conveyed by stdout alone.
+
+ARGUMENTS:
+    old_pr      Number of the squash-merged PR (a positive integer, no `#`)
+
+OPTIONS:
+    -h          Show this help message
+EOF
+
+    return 0
+  fi
+
+  if (($# != 1)); then
+    echo "ERROR: preflight takes exactly one positional argument: <old_pr>"
+
+    return 0
+  fi
+
+  local old_pr=$1
+  if ! [[ $old_pr =~ ^[1-9][0-9]*$ ]]; then
+    echo "PREFLIGHT: FAIL — old_pr '$old_pr' is not a positive integer"
+
+    return 0
+  fi
+
+  if ! stderr_file=$(mktemp 2>&1); then
+    echo "ERROR: $stderr_file"
+
+    return 0
+  fi
+  trap 'rm -f "$stderr_file"' EXIT
+
+  if ! git rev-parse --git-dir >/dev/null 2>"$stderr_file"; then
+    echo "ERROR: $(<"$stderr_file")"
+
+    return 0
+  fi
+
+  if ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+    echo "PREFLIGHT: FAIL — no merge in progress; run \`git merge <target>\` first"
+
+    return 0
+  fi
+
+  local pr_ref="refs/pull/$old_pr/head"
+  local ls_remote_output
+  if ! ls_remote_output=$(git ls-remote origin "$pr_ref" 2>"$stderr_file"); then
+    echo "ERROR: $(<"$stderr_file")"
+
+    return 0
+  fi
+
+  # `ls-remote` matches patterns against the tail of ref names, so it can also list
+  # decoys such as `refs/heads/x/refs/pull/1/head`. Keep only the exact ref.
+  local old_tip="" sha ref
+  while read -r sha ref; do
+    if [[ $ref == "$pr_ref" ]]; then
+      old_tip=$sha
+    fi
+  done <<<"$ls_remote_output"
+
+  if [[ -z $old_tip ]]; then
+    echo "PREFLIGHT: FAIL — PR #$old_pr not found on origin ($pr_ref)"
+
+    return 0
+  fi
+
+  local fetched=no
+  if ! git cat-file -e "$old_tip^{commit}" 2>/dev/null; then
+    if ! git fetch -q --no-prune --no-tags --no-write-fetch-head origin "$pr_ref" 2>"$stderr_file"; then
+      echo "ERROR: $(<"$stderr_file")"
+
+      return 0
+    fi
+
+    if ! git cat-file -e "$old_tip^{commit}" 2>/dev/null; then
+      echo "ERROR: commit $old_tip still missing after fetching $pr_ref"
+
+      return 0
+    fi
+
+    fetched=yes
+  fi
+
+  local head base
+  if ! head=$(git rev-parse HEAD 2>"$stderr_file"); then
+    echo "ERROR: $(<"$stderr_file")"
+
+    return 0
+  fi
+
+  if ! base=$(git merge-base HEAD "$old_tip" 2>"$stderr_file"); then
+    echo "PREFLIGHT: FAIL — HEAD and PR #$old_pr's head $old_tip share no history"
+
+    return 0
+  fi
+
+  if [[ $base == "$head" ]]; then
+    echo "PREFLIGHT: FAIL — HEAD has no commits beyond PR #$old_pr's head; PR #$old_pr does not look like this branch's former base"
+
+    return 0
+  fi
+
+  # Old-base commits reach the target only via the squash commit, so a BASE that is
+  # already on the target means PR #old_pr is not this branch's former base.
+  if git merge-base --is-ancestor "$base" MERGE_HEAD; then
+    echo "PREFLIGHT: FAIL — merge-base $base of HEAD and PR #$old_pr's head is already on the merge target; PR #$old_pr does not look like this branch's former base"
+
+    return 0
+  fi
+
+  local own_commits
+  if ! own_commits=$(git log --oneline "$base..HEAD" 2>"$stderr_file"); then
+    echo "ERROR: $(<"$stderr_file")"
+
+    return 0
+  fi
+
+  echo "PREFLIGHT: PASS"
+  echo "OLD_TIP=$old_tip"
+  echo "BASE=$base"
+  echo "FETCHED=$fetched"
+  echo "OWN_COMMITS:"
+  echo "$own_commits"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

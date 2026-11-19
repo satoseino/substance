@@ -2,4 +2,5 @@
 /.gitignore.override
 /.claude/settings.local.json
 /_acmd_cache
+/.working-docs
 
