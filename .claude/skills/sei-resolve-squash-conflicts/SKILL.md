@@ -86,7 +86,11 @@ If the error indicates an authentication failure, also ask the user to authentic
    - If the path is a generated lockfile (e.g. `uv.lock`, `package-lock.json`, `poetry.lock`,
      `Cargo.lock`) and both sides changed it, do not merge its hunks. Take `MERGE_HEAD`'s version,
      resolve the manifests it is generated from first, then regenerate it with the project's lock
-     command (e.g. `uv lock`, `npm install --package-lock-only`) and record a judgment call. If
+     command in its minimal-update form, which keeps existing pins and only resolves what the
+     manifests changed: e.g. `uv lock`, `npm install --package-lock-only`, `poetry lock`
+     (Poetry 2.0+; `poetry lock --no-update` on 1.x), `cargo update --workspace`. Never use a
+     form that re-resolves everything (`poetry lock --regenerate`, `cargo generate-lockfile`,
+     `uv lock --upgrade`). Record a judgment call. If
      regeneration fails (e.g. no network), keep `MERGE_HEAD`'s version, stage it, and continue;
      record the failure, with its error and the lock command to run, for the final summary.
    - Otherwise, start from `MERGE_HEAD`'s version and re-apply only the stacked branch's own
@@ -124,13 +128,14 @@ If the error indicates an authentication failure, also ask the user to authentic
    - actual: `git diff --cached MERGE_HEAD` (target vs. what `git merge --continue` will commit)
 
    Run `${CLAUDE_SKILL_DIR}/scripts/verify-own-changes "$BASE"`. It prints `VERIFY: MATCH`, or
-   `VERIFY: MISMATCH` followed by one `<kind>\t<path>` line per path whose changed lines differ
-   between the two diffs (`only-expected`, `only-actual`, `differs`; run it with `-h` for their
-   meaning), or `ERROR: …` — on an error, fall back to comparing the two diffs directly. For each
-   listed path, compare `git diff "$BASE" HEAD -- <path>` with
-   `git diff --cached MERGE_HEAD -- <path>`. The script does not compare binary content: for a
-   binary path in both diffs, check that its staged blob (`git rev-parse :<path>`) equals
-   `HEAD`'s (`git rev-parse HEAD:<path>`).
+   `VERIFY: MISMATCH` followed by one `<kind>\t<path>` line per path where the two diffs differ
+   (`only-expected`, `only-actual`, `differs`, `binary-differs`; run it with `-h` for their
+   meaning), or `ERROR: …` — on an error, fall back to comparing the two diffs directly. It
+   compares changed lines together with one line of context, so a hunk that landed in the
+   wrong place is reported as `differs`, and so is a hunk next to a line `MERGE_HEAD` changed.
+   For each listed text path, compare `git diff "$BASE" HEAD -- <path>` with
+   `git diff --cached MERGE_HEAD -- <path>`. A `binary-differs` path is a binary file whose
+   staged blob is not `HEAD`'s, i.e. the stacked branch's version of it was not kept.
 
    Every hunk in *expected* should appear in *actual*, and every hunk in *actual* should trace
    back to *expected*. Investigate each mismatch — including in auto-merged files that never

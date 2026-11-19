@@ -7,15 +7,19 @@ usage() {
 Usage: verify-own-changes [-h] <base>
 
 Checks that a staged squash-conflict resolution carries exactly the stacked
-branch's own changes. Per path, compares the changed lines (`+`/`-` lines and
-mode changes; file headers, hunk headers and context excluded) of
+branch's own changes. Per path, compares the hunk bodies (`+`/`-` lines with one
+line of context on each side, plus mode changes; file headers and hunk headers
+excluded, so line numbers do not matter) of
 
     expected: git diff <base> HEAD
     actual:   git diff --cached MERGE_HEAD
 
-and lists every path where they differ. Rename detection is off on both sides,
-so a rename shows as a delete plus an add. Binary content is not compared: a
-binary path changed on both sides always compares equal, so check it by hand.
+and lists every path where they differ. The context line makes a changed line
+that lands in a different place compare unequal; it also makes a path compare
+unequal when MERGE_HEAD changed a line next to an own change. Rename detection
+is off on both sides, so a rename shows as a delete plus an add. A binary path
+changed on both sides is compared by blob instead: its staged blob must equal
+HEAD's.
 
 Except with `-h`, prints one of the following to stdout for consumption by an LLM:
 
@@ -30,7 +34,8 @@ Except with `-h`, prints one of the following to stdout for consumption by an LL
 where <kind> is one of:
     only-expected   the path has own changes, but the staged result does not differ from MERGE_HEAD there
     only-actual     the staged result differs from MERGE_HEAD there, but the path has no own changes
-    differs         both sides change the path, with different changed lines
+    differs         both sides change the path, with different hunk bodies
+    binary-differs  both sides change the binary path, and its staged blob differs from HEAD's
 
 Always exits 0; the outcome is conveyed by stdout alone.
 
@@ -42,17 +47,24 @@ OPTIONS:
 EOF
 }
 
-# Changed lines of one path: the `+`/`-` lines inside hunks, plus the mode and binary lines of
-# the extended header. File headers, hunk headers, and context are left out. Header lines are
-# told apart by position (before the first `@@`), so removed content such as `-- comment` is kept.
+# Hunk bodies of one path: the `+`/`-` lines inside hunks with one line of context, plus the
+# mode and binary lines of the extended header. File headers and hunk headers are left out.
+# Header lines are told apart by position (before the first `@@`), so removed content such as
+# `-- comment` is kept. With pipefail, a `git diff` failure is the function's exit status.
 changed_lines() {
-  git diff --no-ext-diff --no-textconv --no-color --no-renames --no-relative "$@" |
+  git diff --no-ext-diff --no-textconv --no-color --no-renames --no-relative -U1 "$@" |
     awk '
       /^diff --git / { in_hunk = 0; next }
       /^@@/          { in_hunk = 1; next }
-      in_hunk && /^[-+\\]/ { print; next }
+      in_hunk && /^[-+ \\]/ { print; next }
       !in_hunk && /^(old mode|new mode|new file mode|deleted file mode|Binary files) / { print }
-    ' || true
+    '
+}
+
+# Prints the object name of a path's blob in the given tree-ish (`HEAD`, or empty for the
+# index), or nothing if the path is absent there.
+blob_of() {
+  git rev-parse -q --verify "$1:$2" 2>/dev/null || true
 }
 
 main() {
@@ -116,7 +128,7 @@ main() {
     return 0
   fi
 
-  local mismatches="" path in_expected in_actual
+  local mismatches="" path in_expected in_actual expected_lines actual_lines
   while IFS= read -r path; do
     [[ -z $path ]] && continue
 
@@ -129,8 +141,21 @@ main() {
       mismatches+="only-expected	$path"$'\n'
     elif [[ $in_expected == no && $in_actual == yes ]]; then
       mismatches+="only-actual	$path"$'\n'
-    elif [[ "$(changed_lines "$base" HEAD -- "$path")" != "$(changed_lines --cached MERGE_HEAD -- "$path")" ]]; then
-      mismatches+="differs	$path"$'\n'
+    elif [[ $in_expected == yes && $in_actual == yes ]]; then
+      if ! expected_lines=$(changed_lines "$base" HEAD -- "$path" 2>"$stderr_file") ||
+        ! actual_lines=$(changed_lines --cached MERGE_HEAD -- "$path" 2>"$stderr_file"); then
+        echo "ERROR: git diff failed for '$path': $(<"$stderr_file")"
+
+        return 0
+      fi
+
+      if grep -q '^Binary files ' <<<"$expected_lines"$'\n'"$actual_lines"; then
+        if [[ "$(blob_of HEAD "$path")" != "$(blob_of "" "$path")" ]]; then
+          mismatches+="binary-differs	$path"$'\n'
+        fi
+      elif [[ $expected_lines != "$actual_lines" ]]; then
+        mismatches+="differs	$path"$'\n'
+      fi
     fi
   done < <(printf '%s\n%s\n' "$expected_paths" "$actual_paths" | sort -u)
 
