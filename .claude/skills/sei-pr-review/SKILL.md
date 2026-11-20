@@ -103,12 +103,10 @@ description: >
   which have been dismissed, and remaining concerns if any.
   changes_requested is a flow sequence of finding labels posted to GitHub that are still open.
   findings_dismissed is a flow sequence of finding labels the reviewer chose not to post.
-  merged is a boolean that tracks if the PR has been merged.
   notes is for optional notes about remaining concerns.
 pr_url: <actual URL of the PR>
 changes_requested: []
 findings_dismissed: []
-merged:
 notes:
 ---
 # PR Review: <PR title>
@@ -156,7 +154,7 @@ appears anywhere in the report file.
 ```
 
 Write the front matter in its **initial state** as shown above: `pr_url` filled with the actual
-PR URL, `changes_requested: []`, `findings_dismissed: []`, `merged` and `notes` left empty.
+PR URL, `changes_requested: []`, `findings_dismissed: []`, and `notes` left empty.
 
 ### Post-Report Triage
 
@@ -215,7 +213,7 @@ next_labels:
 
 Then print: `Session manifest written: $session_file`
 
-Do not set `merged` or `notes` in the report's front matter unless the user explicitly asks.
+Do not set `notes` in the report's front matter unless the user explicitly asks.
 
 ---
 
