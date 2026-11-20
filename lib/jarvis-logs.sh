@@ -30,7 +30,11 @@ EOF
   fi
 
   if ! AWS_PROFILE=ascending-saas-admin aws sts get-caller-identity &>/dev/null; then
-    PATH="$HOME/.local/bin:/usr/local/bin:$PATH" aws sso login --sso-session sso-ascending &>/dev/null
+    if ! PATH="$HOME/.local/bin:/usr/local/bin:$PATH" aws sso login --sso-session sso-ascending; then
+      sei::log_error "AWS SSO login failed"
+
+      return 1
+    fi
   fi
 
   local -a pods

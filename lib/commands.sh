@@ -52,7 +52,7 @@ use-role-profile() {
 }
 
 set-role-env() {
-  local profile
+  local profile creds
 
   if [[ -n "${1:+x}" ]]; then
     profile=$1
@@ -61,7 +61,13 @@ set-role-env() {
   fi
 
   # Make sure system AWS CLI (guaranteed to be v2) is used. Sometimes a Python venv might have AWS CLI v1 installed.
-  eval "$(PATH="$HOME/.local/bin:/usr/local/bin:$PATH" aws configure export-credentials --format env --profile "$profile")"
+  if ! creds=$(PATH="$HOME/.local/bin:/usr/local/bin:$PATH" aws configure export-credentials --format env --profile "$profile" 2>/dev/null); then
+    # Most likely an expired SSO token; log in to the profile's own SSO session and retry.
+    PATH="$HOME/.local/bin:/usr/local/bin:$PATH" aws sso login --profile "$profile" || return 1
+    creds=$(PATH="$HOME/.local/bin:/usr/local/bin:$PATH" aws configure export-credentials --format env --profile "$profile") || return 1
+  fi
+
+  eval "$creds"
 
   unset AWS_PROFILE
 }
