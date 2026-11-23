@@ -821,7 +821,7 @@ EOF
 
 _sei_rw::complete() {
   local -a opts
-  opts=("'-h  (Show help message)'" "'new  (Create review worktree)'""'bootstrap  (bootstrap worktree)'" "'renew  (Renew workspace)'" "'sync  (Sync worktree)'" "'branch  (List branches)'" "'park  (Checkout parking branch)'" "'pr  (Fetch PR for review)'")
+  opts=("'-h  (Show help message)'" "'new  (Create review worktree)'" "'bootstrap  (bootstrap worktree)'" "'renew  (Renew workspace)'" "'sync  (Sync worktree)'" "'branch  (List branches)'" "'park  (Checkout parking branch)'" "'pr  (Fetch PR for review)'")
 
   if ((COMP_CWORD == 1)) && [[ $2 == "" ]]; then
     compgen -V COMPREPLY -W "${opts[*]}"
