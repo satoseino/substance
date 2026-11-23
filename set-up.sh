@@ -210,6 +210,14 @@ main() {
     fi
   done
 
+  # Suppress login(1)'s "Last login: ..." banner.
+  if [[ ! -e "$HOME/.hushlogin" ]]; then
+    touch "$HOME/.hushlogin"
+
+    sei::log_info "Created $HOME/.hushlogin"
+  fi
+
+  # Install git hooks if pre-commit exists
   if ! type pre-commit &>/dev/null; then
     return 0
   fi
