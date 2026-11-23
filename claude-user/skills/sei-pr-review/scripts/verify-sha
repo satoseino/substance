@@ -2,6 +2,8 @@
 
 set -eu -o pipefail
 
+source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lib/gh-preflight.sh"
+
 _pr_url_regex='^https://github\.com/[^/]+/[^/]+/pull/[0-9]+/?$'
 
 main() {
@@ -12,8 +14,10 @@ Usage: verify-sha [-h] PR_URL
 Verify that the local HEAD SHA matches the PR's current head commit, as
 reported by `gh pr view --json headRefOid`. Works the same for PRs from a
 branch of the upstream repo and PRs from a fork, and for any local checkout
-method (named branch, `pr/N` branch, or detached HEAD). Except with `-h`,
-prints exactly one of the following to stdout for consumption by an LLM:
+method (named branch, `pr/N` branch, or detached HEAD). Requires the `gh` CLI
+(>= 2.81.0) to be installed and authenticated; missing gh, an unsupported gh
+version, or not being logged in is reported as `ERROR: <reason>`. Except with
+`-h`, prints exactly one of the following to stdout for consumption by an LLM:
 
     VERIFY-SHA: PASS
     VERIFY-SHA: FAIL — <details>
@@ -42,6 +46,13 @@ EOF
 
   if ! [[ $pr_url =~ $_pr_url_regex ]]; then
     echo "ERROR: not a GitHub PR URL: $pr_url"
+
+    return 0
+  fi
+
+  local gh_check
+  if ! gh_check=$(_gh_preflight); then
+    echo "$gh_check"
 
     return 0
   fi
