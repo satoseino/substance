@@ -22,14 +22,15 @@ Use the results to inform your review rather than guessing at behavior.
 
 ## Shared Procedure: Verify SHA
 
-Used by both `start` (Review Process step 1) and `followup` (Step 1) to confirm the local HEAD
-matches the PR's remote branch before any review work begins. Takes no arguments — `verify-sha`
-derives the branch to check from the current git state.
+Used by both `start` (Review Process step 1) and `followup` (Step 2) to confirm the local HEAD
+matches the PR's current head commit before any review work begins. Works the same whether the
+PR's head branch lives in this repo or in a fork, and whatever the local checkout looks like
+(named branch, `pr/N` branch, or detached HEAD).
 
-Run via `Bash`:
+Run via `Bash`, substituting `$pr_url` with the PR URL:
 
 ```
-${CLAUDE_SKILL_DIR}/scripts/verify-sha
+${CLAUDE_SKILL_DIR}/scripts/verify-sha "$pr_url"
 ```
 
 Continue only if its stdout is exactly `VERIFY-SHA: PASS`. On anything else — a
@@ -60,8 +61,8 @@ URL, invoke the `sei-fetch-single-comment` skill with that URL to obtain its con
 
 ### Review Process
 
-1. **Verify the local HEAD matches the PR's remote branch.**
-   Follow the Shared Procedure: Verify SHA above.
+1. **Verify the local HEAD matches the PR's head commit.**
+   Follow the Shared Procedure: Verify SHA above with `$pr_url`.
 
 2. **Read the spec.** Open `$spec_file` with the `Read` tool. Extract the intended behavior,
    acceptance criteria, and any explicitly called-out focus areas. Keep these in mind throughout.
@@ -236,12 +237,7 @@ Do not proceed past this check in either case.
 If `$focus_prompt` asks you to look at a specific PR comment by URL, invoke the
 `sei-fetch-single-comment` skill with that URL to obtain its content.
 
-### Step 1 — Verify SHA
-
-Before doing anything else, follow the Shared Procedure: Verify SHA above. If it fails,
-**stop immediately and report the failure** to the user before proceeding further.
-
-### Step 2 — Load Session Context
+### Step 1 — Load Session Context
 
 1. Read the session manifest at `$session_file`. Parse its YAML front matter to extract:
    - `load:` — list of file paths relative to CWD
@@ -251,7 +247,13 @@ Before doing anything else, follow the Shared Procedure: Verify SHA above. If it
 3. Read the markdown body of the session manifest to absorb any prior session notes.
 4. The **last entry** in the `load:` list is the **report file** — the single report file used
    throughout all sessions for this PR. All other entries before it are spec or spec-like files.
-   Note its `pr_url` front-matter field — needed in Step 3 below to fetch reviewer comments.
+   Note its `pr_url` front-matter field — needed in Step 2 to verify the SHA and in Step 3 to
+   fetch reviewer comments.
+
+### Step 2 — Verify SHA
+
+Follow the Shared Procedure: Verify SHA above with the `pr_url` from Step 1. If it fails,
+**stop immediately and report the failure** to the user before proceeding further.
 
 ### Step 3 — Follow-Up Review
 

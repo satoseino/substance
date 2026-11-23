@@ -2,6 +2,8 @@
 
 set -eu -o pipefail
 
+source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lib/gh-preflight.sh"
+
 _pr_url_regex='^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)/?$'
 
 # Groups inline review comments into threads (root = comment with no
@@ -80,33 +82,6 @@ _gh_api_paginated() {
   jq 'flatten(1)' <<<"$raw"
 }
 
-_resolve_login() {
-  if ! command -v gh &>/dev/null; then
-    echo "ERROR: gh CLI not found. Install it: https://cli.github.com/"
-    return 1
-  fi
-
-  local raw
-  if ! raw=$(gh auth status --json hosts --jq '.hosts."github.com"[0].login' 2>&1); then
-    if [[ $raw == *"unknown flag"* ]]; then
-      echo "ERROR: gh CLI is too old (needs >= 2.81.0 for 'gh auth status --json'). Upgrade gh and try again."
-    else
-      echo "ERROR: $raw"
-    fi
-    return 1
-  fi
-
-  local login
-  login=$(head -n1 <<<"$raw")
-
-  if [[ -z $login ]] || [[ $login == "null" ]] || ! [[ $login =~ ^[A-Za-z0-9-]+$ ]]; then
-    echo "ERROR: not logged into GitHub via gh. Run: gh auth login"
-    return 1
-  fi
-
-  printf '%s' "$login"
-}
-
 main() {
   if (($# > 0)) && [[ $1 == "-h" ]]; then
     cat <<'EOF'
@@ -167,7 +142,7 @@ EOF
   fi
 
   local login
-  if ! login=$(_resolve_login); then
+  if ! login=$(_gh_preflight); then
     echo "$login"
 
     return 0
