@@ -181,13 +181,6 @@ main() {
   _ensure_symlink "$HOME/.claude/CLAUDE.md" "$substance_dir/.claude/CLAUDE.md"
   _ensure_symlink "$HOME/.claude/settings.json" "$substance_dir/.claude/settings.json"
 
-  # settings.local.json must exist in the substance folder because settings.json is symlinked
-  if ! [[ -e "$substance_dir/.claude/settings.local.json" ]]; then
-    sei::log_info "Creating .claude/settings.local.json in substance directory"
-
-    echo '{}' >"$substance_dir/.claude/settings.local.json"
-  fi
-
   local -a binaries
 
   mapfile -t binaries < <(ls -1 "$substance_dir/bin")
