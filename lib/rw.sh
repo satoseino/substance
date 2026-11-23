@@ -591,6 +591,22 @@ _sei_rw::pr_precheck() {
 _sei_rw::pr() {
   local pr_url=$1
 
+  local toplevel
+  if ! toplevel="$(git rev-parse --show-toplevel)"; then
+    sei::log_error "Not inside a git worktree"
+
+    return 1
+  fi
+
+  # From a subdirectory, --git-dir and --git-common-dir can print the same
+  # directory in different forms (absolute vs relative), which would defeat the
+  # linked-worktree check below. Requiring the top-level folder keeps it exact.
+  if [[ "$(pwd -P)" != "$(cd "$toplevel" && pwd -P)" ]]; then
+    sei::log_error "Run this from the top-level folder of the review worktree: $toplevel"
+
+    return 1
+  fi
+
   if [[ "$(git rev-parse --git-dir)" == "$(git rev-parse --git-common-dir)" ]]; then
     sei::log_error "Not in a linked git worktree. Run this from a dedicated review worktree, not the main checkout"
 
@@ -644,23 +660,25 @@ _sei_rw::pr() {
 
   _sei_rw::pr_precheck "$slug" "$number" || return 1
 
-  # Fetch and switch/reset only. Never pull, merge, or rebase here: the shared
-  # post-merge hook would run pre-commit hooks defined by the PR's tree.
-  local branch="pr/$number"
-  if [[ "$(git branch --show-current)" == "$branch" ]]; then
-    git fetch origin "pull/$number/head" || return 1
+  # Fetch into FETCH_HEAD only, and verify it is the pre-checked commit before
+  # anything lands in the worktree. Never pull, merge, or rebase here: the
+  # shared post-merge hook would run pre-commit hooks defined by the PR's tree.
+  git fetch origin "pull/$number/head" || return 1
 
-    git reset --hard FETCH_HEAD || return 1
-  else
-    git fetch origin "+pull/$number/head:refs/heads/$branch" || return 1
+  local fetched_sha
+  fetched_sha="$(git rev-parse FETCH_HEAD)" || return 1
 
-    git switch "$branch" || return 1
-  fi
-
-  if [[ "$(git rev-parse HEAD)" != "$head_sha" ]]; then
-    sei::log_error "HEAD $(git rev-parse HEAD) differs from the PR head $head_sha (the author probably pushed meanwhile). Run 'rw pr $pr_url' again"
+  if [[ $fetched_sha != "$head_sha" ]]; then
+    sei::log_error "Fetched $fetched_sha differs from the pre-checked PR head $head_sha (the author probably pushed meanwhile). Nothing was checked out. Run 'rw pr $pr_url' again"
 
     return 1
+  fi
+
+  local branch="pr/$number"
+  if [[ "$(git branch --show-current)" == "$branch" ]]; then
+    git reset --hard "$head_sha" || return 1
+  else
+    git switch -C "$branch" "$head_sha" || return 1
   fi
 
   sei::log_info "Worktree is on $branch at $head_sha. No dependencies were installed and no PR code was run"
@@ -692,7 +710,7 @@ SUBCOMMANDS:
     sync        [BRANCH]    Pull from the remote branch or switch and pull (project auto-detected via git remote; additionally runs uv sync and activates the virtual environment for jarvis-registry only); must be in a worktree folder
     branch                  List all branches with worktree occupancy markings, for the selected project(s); must be in the workspace folder
     park                    Checkout the corresponding parking branch of the worktree (project auto-detected via git remote)
-    pr          PR_URL      Pre-check a PR's changed files, then fetch its head into branch pr/<N> of this worktree without installing or running anything; must be in a worktree folder
+    pr          PR_URL      Pre-check a PR's changed files, then fetch its head into branch pr/<N> of this worktree without installing or running anything; must be in the top-level folder of a linked worktree
 
 OPTIONS:
     -h            Show this help message
@@ -773,8 +791,10 @@ First lists the PR's changed files via `gh` (nothing is fetched yet) and asks
 for confirmation if any of them can run code or instructions locally (agent
 config, CLAUDE.md, pre-commit, pyproject.toml, package.json, Docker, CI...).
 Then fetches refs/pull/<N>/head from origin into branch pr/<N> and switches to
-it, or hard-resets pr/<N> if it is already checked out. Never runs git pull,
-uv sync, or anything from the PR. Must be used in a clean linked worktree.
+it, or hard-resets pr/<N> if it is already checked out. Nothing is checked out
+unless the fetched commit is the one whose files were pre-checked. Never runs
+git pull, uv sync, or anything from the PR. Must be used in the top-level
+folder of a clean linked worktree.
 
 ARGUMENTS:
     PR_URL      Full GitHub URL of the PR, e.g.
