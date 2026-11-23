@@ -39,6 +39,76 @@ _sei_rw::select_projects() {
   printf '%s\n' "${selected[@]}"
 }
 
+_sei_rw::select_project() {
+  printf '%s\n' "jarvis-registry" "jarvis-registry-cli" |
+    fzf --height=50% --layout=reverse
+}
+
+# Worktree folder names that `rw renew` scans for, per repo:
+# registry `*-reviews*` minus `cli-*`, cli `cli-*-reviews`.
+_sei_rw_new_name_regex_registry='^[a-z0-9-]+-reviews(-[0-9]+)?$'
+_sei_rw_new_name_regex_cli='^cli-[a-z0-9-]+-reviews$'
+
+_sei_rw::new() {
+  local repo
+  repo="$(_sei_rw::select_project)"
+
+  if [[ -z $repo ]]; then
+    sei::log_info "No project selected"
+
+    return 0
+  fi
+
+  if [[ ! -d $repo ]]; then
+    sei::log_error "No $repo folder here. You are probably not in the workspace folder"
+
+    return 1
+  fi
+
+  local regex hint
+  case "$repo" in
+  jarvis-registry)
+    regex=$_sei_rw_new_name_regex_registry
+    hint="<name>-reviews or <name>-reviews-<N>, not starting with cli-"
+    ;;
+  jarvis-registry-cli)
+    regex=$_sei_rw_new_name_regex_cli
+    hint="cli-<name>-reviews"
+    ;;
+  esac
+
+  local name
+  while true; do
+    read -r -p "Worktree name for $repo ($hint; empty to cancel): " name
+
+    if [[ -z $name ]]; then
+      sei::log_info "Cancelled"
+
+      return 0
+    fi
+
+    if ! [[ $name =~ $regex ]]; then
+      sei::log_error "'$name' does not match $hint"
+    elif [[ $repo == jarvis-registry && $name == cli-* ]]; then
+      sei::log_error "jarvis-registry worktree names must not start with cli-"
+    elif [[ -e $name ]]; then
+      sei::log_error "'$name' already exists in this folder"
+    elif git -C "$repo" rev-parse --verify --quiet "refs/heads/parking/$name" >/dev/null; then
+      sei::log_error "Branch parking/$name already exists in $repo"
+    else
+      break
+    fi
+  done
+
+  if ! git -C "$repo" worktree add "../$name" -b "parking/$name" main; then
+    sei::log_error "Failed to create worktree $name"
+
+    return 1
+  fi
+
+  sei::log_info "Created worktree $name on parking/$name. Next: cd $name && rw bootstrap"
+}
+
 _sei_rw::print_header() {
   if [[ -t 1 ]]; then
     printf '\n\033[33m%s\033[0m\n\n' "== $1 =="
@@ -428,6 +498,174 @@ _sei_rw::park_cli() {
   fi
 }
 
+_sei_rw_pr_url_regex='^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+)/?$'
+
+# Paths whose changes can make a later local action (launching Claude Code,
+# opening an editor, entering the folder, installing, testing, committing,
+# building) run code or instructions supplied by the PR author.
+_sei_rw_pr_risky_path_regexes=(
+  '(^|/)\.claude/'
+  '(^|/)\.mcp\.json$'
+  '(^|/)CLAUDE(\.local)?\.md$'
+  '(^|/)AGENTS\.md$'
+  '(^|/)\.pre-commit-config\.ya?ml$'
+  '(^|/)pyproject\.toml$'
+  '(^|/)uv\.lock$'
+  '(^|/)(setup\.py|setup\.cfg)$'
+  '(^|/)go\.mod$'
+  '(^|/)\.golangci\.ya?ml$'
+  '(^|/)\.goreleaser\.ya?ml$'
+  '(^|/)conftest\.py$'
+  '(^|/)pytest\.ini$'
+  '(^|/)package(-lock)?\.json$'
+  '(^|/)(\.npmrc|yarn\.lock|pnpm-lock\.yaml)$'
+  '(^|/)Dockerfile[^/]*$'
+  '(^|/)docker-compose[^/]*\.ya?ml$'
+  '(^|/)Makefile$'
+  '(^|/)\.envrc$'
+  '(^|/)\.vscode/'
+  '(^|/)\.idea/'
+  '^\.github/'
+)
+
+# Prints "owner/repo" for the origin remote, from either an https or ssh URL.
+_sei_rw::origin_slug() {
+  local remote_url
+  remote_url="$(git remote get-url origin)" || return 1
+
+  remote_url="${remote_url%.git}"
+  remote_url="${remote_url%/}"
+
+  local repo="${remote_url##*/}"
+  local rest="${remote_url%/*}"
+  local owner="${rest##*[/:]}"
+
+  printf '%s/%s\n' "$owner" "$repo"
+}
+
+_sei_rw::pr_precheck() {
+  local slug=$1 number=$2
+
+  local listing
+  if ! listing="$(
+    gh api "repos/$slug/pulls/$number/files" --paginate \
+      --jq '.[] | .filename, (.previous_filename // empty)'
+  )"; then
+    sei::log_error "Failed to list the files changed by PR #$number"
+
+    return 1
+  fi
+
+  local -a files
+  mapfile -t files <<<"$listing"
+
+  local -a flagged=()
+  local file pattern
+  for file in "${files[@]}"; do
+    for pattern in "${_sei_rw_pr_risky_path_regexes[@]}"; do
+      if [[ $file =~ $pattern ]]; then
+        flagged+=("$file")
+
+        break
+      fi
+    done
+  done
+
+  if ((${#flagged[@]} == 0)); then
+    sei::log_info "Pre-check: none of the ${#files[@]} changed files is an agent-config or code-execution entry point"
+
+    return 0
+  fi
+
+  printf '\n'
+  sei::log_error "Pre-check: PR #$number changes files that can run code or instructions locally:"
+  printf '  %s\n' "${flagged[@]}"
+  printf '\nRead them first with: gh pr diff %s --repo %s\n\n' "$number" "$slug"
+
+  local reply
+  read -r -p "Fetch the PR into this worktree anyway? [y/N] " reply
+
+  [[ "${reply:-N}" =~ ^[Yy]$ ]]
+}
+
+_sei_rw::pr() {
+  local pr_url=$1
+
+  if [[ "$(git rev-parse --git-dir)" == "$(git rev-parse --git-common-dir)" ]]; then
+    sei::log_error "Not in a linked git worktree. Run this from a dedicated review worktree, not the main checkout"
+
+    return 1
+  fi
+
+  local slug
+  if ! slug="$(_sei_rw::origin_slug)"; then
+    sei::log_error "Failed to read the origin remote"
+
+    return 1
+  fi
+
+  if ! [[ $pr_url =~ $_sei_rw_pr_url_regex ]]; then
+    sei::log_error "Not a GitHub PR URL: $pr_url"
+
+    return 1
+  fi
+
+  local number=${BASH_REMATCH[3]}
+
+  if [[ "${BASH_REMATCH[1]}/${BASH_REMATCH[2]}" != "$slug" ]]; then
+    sei::log_error "PR URL is for ${BASH_REMATCH[1]}/${BASH_REMATCH[2]}, but origin is $slug"
+
+    return 1
+  fi
+
+  if [[ -n "$(git status --porcelain)" ]]; then
+    sei::log_error "The worktree has uncommitted changes or untracked files. Clean it before fetching a PR"
+
+    return 1
+  fi
+
+  local info
+  if ! info="$(gh pr view "$number" --repo "$slug" --json title,author,isCrossRepository,headRepositoryOwner,headRefName,headRefOid,state)"; then
+    sei::log_error "Failed to read PR #$number from $slug"
+
+    return 1
+  fi
+
+  local head_sha
+  head_sha="$(jq -r '.headRefOid' <<<"$info")"
+
+  jq -r '
+    "PR #'"$number"': \(.title)",
+    "  author: \(.author.login); state: \(.state)",
+    "  head:   \(.headRepositoryOwner.login):\(.headRefName) @ \(.headRefOid)",
+    "  fork:   \(.isCrossRepository)"
+  ' <<<"$info"
+  printf '\n'
+
+  _sei_rw::pr_precheck "$slug" "$number" || return 1
+
+  # Fetch and switch/reset only. Never pull, merge, or rebase here: the shared
+  # post-merge hook would run pre-commit hooks defined by the PR's tree.
+  local branch="pr/$number"
+  if [[ "$(git branch --show-current)" == "$branch" ]]; then
+    git fetch origin "pull/$number/head" || return 1
+
+    git reset --hard FETCH_HEAD || return 1
+  else
+    git fetch origin "+pull/$number/head:refs/heads/$branch" || return 1
+
+    git switch "$branch" || return 1
+  fi
+
+  if [[ "$(git rev-parse HEAD)" != "$head_sha" ]]; then
+    sei::log_error "HEAD $(git rev-parse HEAD) differs from the PR head $head_sha (the author probably pushed meanwhile). Run 'rw pr $pr_url' again"
+
+    return 1
+  fi
+
+  sei::log_info "Worktree is on $branch at $head_sha. No dependencies were installed and no PR code was run"
+}
+
 _sei_rw::park() {
   local project
   project="$(_sei_rw::detect_project)" || return 1
@@ -448,11 +686,13 @@ rw() {
 USAGE: rw [-h] [SUBCOMMAND]
 
 SUBCOMMANDS:
+    new                     Interactively create a review worktree with its parking branch for the selected project (does not bootstrap it); must be in the workspace folder
     bootstrap               Bootstrap a jarvis-registry or jarvis-registry-cli worktree (project auto-detected via git remote); must be in a worktree folder
     renew                   Pull the latest commits on main; rebase parking branches; delete merged branches, for the selected project(s); must be in the workspace folder
     sync        [BRANCH]    Pull from the remote branch or switch and pull (project auto-detected via git remote; additionally runs uv sync and activates the virtual environment for jarvis-registry only); must be in a worktree folder
     branch                  List all branches with worktree occupancy markings, for the selected project(s); must be in the workspace folder
     park                    Checkout the corresponding parking branch of the worktree (project auto-detected via git remote)
+    pr          PR_URL      Pre-check a PR's changed files, then fetch its head into branch pr/<N> of this worktree without installing or running anything; must be in a worktree folder
 
 OPTIONS:
     -h            Show this help message
@@ -461,6 +701,31 @@ EOF
     return 0
   fi
   case "$1" in
+  new)
+    shift 1
+
+    if (($# > 0)); then
+      cat <<'EOF'
+Usage: rw new [-h]
+
+Interactively create a review worktree: pick jarvis-registry or
+jarvis-registry-cli, then enter a folder name, which must be
+<name>-reviews or <name>-reviews-<N> (not starting with cli-) for
+jarvis-registry, or cli-<name>-reviews for jarvis-registry-cli. Creates
+../<name> with branch parking/<name> from local main. Does not run
+rw bootstrap. Must be used in the workspace folder. Takes no arguments.
+
+OPTIONS:
+    -h          Show this help message
+EOF
+
+      [[ $1 == "-h" ]]
+
+      return
+    fi
+
+    _sei_rw::new
+    ;;
   bootstrap)
     _sei_rw::bootstrap
     ;;
@@ -496,6 +761,36 @@ EOF
   park)
     _sei_rw::park
     ;;
+  pr)
+    shift 1
+
+    if (($# != 1)) || [[ $1 == "-h" ]]; then
+      cat <<'EOF'
+Usage: rw pr [-h] PR_URL
+
+Fetch a pull request into this worktree for review, including PRs from forks.
+First lists the PR's changed files via `gh` (nothing is fetched yet) and asks
+for confirmation if any of them can run code or instructions locally (agent
+config, CLAUDE.md, pre-commit, pyproject.toml, package.json, Docker, CI...).
+Then fetches refs/pull/<N>/head from origin into branch pr/<N> and switches to
+it, or hard-resets pr/<N> if it is already checked out. Never runs git pull,
+uv sync, or anything from the PR. Must be used in a clean linked worktree.
+
+ARGUMENTS:
+    PR_URL      Full GitHub URL of the PR, e.g.
+                https://github.com/owner/repo/pull/123 (must match origin)
+
+OPTIONS:
+    -h          Show this help message
+EOF
+
+      [[ $# == 1 && $1 == "-h" ]]
+
+      return
+    fi
+
+    _sei_rw::pr "$1"
+    ;;
   *)
     sei::log_error "Unknown subcommand $1"
 
@@ -506,7 +801,7 @@ EOF
 
 _sei_rw::complete() {
   local -a opts
-  opts=("'-h  (Show help message)'" "'bootstrap  (bootstrap worktree)'" "'renew  (Renew workspace)'" "'sync  (Sync worktree)'" "'branch  (List branches)'" "'park  (Checkout parking branch)'")
+  opts=("'-h  (Show help message)'" "'new  (Create review worktree)'""'bootstrap  (bootstrap worktree)'" "'renew  (Renew workspace)'" "'sync  (Sync worktree)'" "'branch  (List branches)'" "'park  (Checkout parking branch)'" "'pr  (Fetch PR for review)'")
 
   if ((COMP_CWORD == 1)) && [[ $2 == "" ]]; then
     compgen -V COMPREPLY -W "${opts[*]}"
@@ -517,7 +812,7 @@ _sei_rw::complete() {
 
     return 0
   elif ((COMP_CWORD == 1)); then
-    compgen -V COMPREPLY -W "bootstrap renew sync branch park" -- "$2"
+    compgen -V COMPREPLY -W "new bootstrap renew sync branch park pr" -- "$2"
 
     return 0
   elif ((COMP_CWORD == 2)) && [[ $3 == "sync" ]] && [[ $2 =~ ^-h?$ ]]; then

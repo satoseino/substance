@@ -2,21 +2,28 @@
 
 set -eu -o pipefail
 
+_pr_url_regex='^https://github\.com/[^/]+/[^/]+/pull/[0-9]+/?$'
+
 main() {
   if (($# > 0)) && [[ $1 == "-h" ]]; then
     cat <<'EOF'
-Usage: verify-sha [-h]
+Usage: verify-sha [-h] PR_URL
 
-Verify that the local HEAD SHA matches the remote branch SHA using `git`
-only. Derives the remote branch name from the current local branch — no
-arguments needed. Except with `-h`, prints exactly one of the following to
-stdout for consumption by an LLM:
+Verify that the local HEAD SHA matches the PR's current head commit, as
+reported by `gh pr view --json headRefOid`. Works the same for PRs from a
+branch of the upstream repo and PRs from a fork, and for any local checkout
+method (named branch, `pr/N` branch, or detached HEAD). Except with `-h`,
+prints exactly one of the following to stdout for consumption by an LLM:
 
     VERIFY-SHA: PASS
     VERIFY-SHA: FAIL — <details>
     ERROR: <reason>
 
 Always exits 0; the outcome is conveyed by stdout alone.
+
+ARGUMENTS:
+    PR_URL      Full URL to the GitHub pull request, e.g.
+                https://github.com/owner/repo/pull/123
 
 OPTIONS:
     -h          Show this help message
@@ -25,8 +32,16 @@ EOF
     return 0
   fi
 
-  if (($# != 0)); then
-    echo "ERROR: verify-sha takes no positional arguments"
+  if (($# != 1)); then
+    echo "ERROR: verify-sha requires exactly one positional argument PR_URL"
+
+    return 0
+  fi
+
+  local pr_url=$1
+
+  if ! [[ $pr_url =~ $_pr_url_regex ]]; then
+    echo "ERROR: not a GitHub PR URL: $pr_url"
 
     return 0
   fi
@@ -38,31 +53,15 @@ EOF
   fi
   trap 'rm -f "$stderr_file"' EXIT
 
-  local branch
-  if ! branch=$(git rev-parse --abbrev-ref HEAD 2>"$stderr_file"); then
+  local remote_sha
+  if ! remote_sha=$(gh pr view "$pr_url" --json headRefOid --jq '.headRefOid' 2>"$stderr_file"); then
     echo "ERROR: $(<"$stderr_file")"
 
     return 0
   fi
 
-  local ls_remote_output
-  if ! ls_remote_output=$(git ls-remote origin "refs/heads/$branch" 2>"$stderr_file"); then
-    echo "ERROR: $(<"$stderr_file")"
-
-    return 0
-  fi
-
-  # `ls-remote` matches patterns against the tail of ref names, so it can also list
-  # decoys such as `refs/heads/x/refs/heads/$branch`. Keep only the exact ref.
-  local remote_sha="" sha ref
-  while read -r sha ref; do
-    if [[ $ref == "refs/heads/$branch" ]]; then
-      remote_sha=$sha
-    fi
-  done <<<"$ls_remote_output"
-
-  if [[ -z $remote_sha ]]; then
-    echo "VERIFY-SHA: FAIL — no remote ref found for branch $branch"
+  if ! [[ $remote_sha =~ ^[0-9a-f]{40}$ ]]; then
+    echo "ERROR: unexpected PR head SHA from gh: '$remote_sha'"
 
     return 0
   fi
@@ -75,7 +74,7 @@ EOF
   fi
 
   if [[ $local_sha != "$remote_sha" ]]; then
-    echo "VERIFY-SHA: FAIL — local $local_sha ≠ remote $remote_sha"
+    echo "VERIFY-SHA: FAIL — local HEAD $local_sha ≠ PR head $remote_sha"
 
     return 0
   fi
