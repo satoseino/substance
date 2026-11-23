@@ -3,7 +3,7 @@ name: sei-fetch-single-comment
 description: "Fetch a single GitHub PR comment by its URL — either a conversation comment (`#issuecomment-<id>` fragment) or an inline review comment (`#discussion_r<id>` fragment) — and load its contents into context, optionally acting on it per given instructions. Use whenever asked to look at, read, or check a specific PR comment by URL."
 argument-hint: "<comment-url> [instructions]"
 arguments: [comment_url, instructions]
-allowed-tools: Bash Read Write Edit Grep Skill mcp__jarvis-registry__discover_servers mcp__jarvis-registry__execute_tool
+allowed-tools: Bash Read Write Edit Grep Skill
 ---
 
 Fetch the GitHub PR comment at `$comment_url` — either a conversation comment (URL fragment

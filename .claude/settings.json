@@ -3,6 +3,12 @@
     "commit": "",
     "pr": ""
   },
+  "permissions": {
+    "allow": [
+      "mcp__plugin_jarvis-registry_jarvis-registry",
+      "mcp__jarvis-registry"
+    ]
+  },
   "hooks": {
     "Notification": [
       {

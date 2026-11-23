@@ -4,7 +4,7 @@ description: "Review a GitHub pull request and manage follow-up reviews. Subcomm
 disable-model-invocation: true
 argument-hint: "start <pr_url> <spec_file> <report_file> <session_file> [focus_prompt] | followup <session_file> [focus_prompt]"
 arguments: [subcommand]
-allowed-tools: Bash Read Write Edit Grep Skill mcp__jarvis-registry__discover_servers mcp__jarvis-registry__execute_tool
+allowed-tools: Bash Read Write Edit Grep Skill
 ---
 
 ## Web Search
@@ -12,9 +12,9 @@ allowed-tools: Bash Read Write Edit Grep Skill mcp__jarvis-registry__discover_se
 If you are uncertain about a library, API, or technology referenced in the PR, discover a web
 search tool via `jarvis-registry`:
 
-1. Call `mcp__jarvis-registry__discover_servers` with a concise keyword query (e.g. `"tavily web search"`).
+1. Call the `discover_servers` tool of the `jarvis-registry` MCP server with a concise keyword query (e.g. `"tavily web search"`).
 2. Pick the result with the highest relevance score whose description matches a web search tool.
-3. Call `mcp__jarvis-registry__execute_tool` with that tool to retrieve current documentation.
+3. Call the `execute_tool` tool of the `jarvis-registry` MCP server with that tool to retrieve current documentation.
 
 Use the results to inform your review rather than guessing at behavior.
 

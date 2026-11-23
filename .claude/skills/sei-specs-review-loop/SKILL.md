@@ -4,7 +4,7 @@ description: "Review one or more existing Markdown spec files in rounds — for 
 disable-model-invocation: true
 argument-hint: "<count> <paths> [focus_prompt]"
 arguments: [count, paths, focus_prompt]
-allowed-tools: Bash Read Edit Grep Agent mcp__jarvis-registry__discover_servers mcp__jarvis-registry__execute_tool
+allowed-tools: Bash Read Edit Grep Agent
 ---
 
 ## Arguments
