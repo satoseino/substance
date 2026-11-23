@@ -143,11 +143,15 @@ Steps to add a new script:
 
 ## Claude Code configuration
 
-`.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/skills/`, and `.claude/agents/` are all tracked in this repo and symlinked into `~/.claude/` by `set-up.sh`.
+`claude-user/` holds user-scoped Claude Code config, symlinked into `~/.claude/` by `set-up.sh`:
 
-Skills live in `.claude/skills/<skill-name>/SKILL.md`. All skill names use the `sei-` prefix. Each `SKILL.md` begins with YAML front matter (`name`, `description`, `allowed-tools`, etc.) followed by the instruction body.
+- `claude-user/CLAUDE-USER.md` → `~/.claude/CLAUDE.md`
+- `claude-user/settings.json` → `~/.claude/settings.json`
+- `claude-user/skills/<skill-name>/` → `~/.claude/skills/<skill-name>/`
 
-Agents in `.claude/agents/` are internal subagents spawned by skills — not user-invocable. Their names also use the `sei-` prefix.
+It is deliberately not named `.claude/`, so Claude Code does not also load these files as project-scoped config when working in this repo. For the same reason the global instructions file is not named `CLAUDE.md`, which Claude Code would auto-load from subfolders.
+
+Skills live in `claude-user/skills/<skill-name>/SKILL.md`. All skill names use the `sei-` prefix. Each `SKILL.md` begins with YAML front matter (`name`, `description`, `allowed-tools`, etc.) followed by the instruction body.
 
 ## Working docs convention
 

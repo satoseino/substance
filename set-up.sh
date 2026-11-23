@@ -163,9 +163,9 @@ main() {
 
   # Symlinking Claude related files and folders
   local -a skills
-  mapfile -t skills < <(ls -1 "$substance_dir/.claude/skills")
+  mapfile -t skills < <(ls -1 "$substance_dir/claude-user/skills")
 
-  _link_files "$HOME/.claude/skills" "$substance_dir/.claude/skills" "skills"
+  _link_files "$HOME/.claude/skills" "$substance_dir/claude-user/skills" "skills"
 
   mapfile -t skills < <(find "$HOME/.claude/skills" -maxdepth 1 -mindepth 1 -type l)
 
@@ -178,8 +178,8 @@ main() {
     fi
   done
 
-  _ensure_symlink "$HOME/.claude/CLAUDE.md" "$substance_dir/.claude/CLAUDE.md"
-  _ensure_symlink "$HOME/.claude/settings.json" "$substance_dir/.claude/settings.json"
+  _ensure_symlink "$HOME/.claude/CLAUDE.md" "$substance_dir/claude-user/CLAUDE-USER.md"
+  _ensure_symlink "$HOME/.claude/settings.json" "$substance_dir/claude-user/settings.json"
 
   local -a binaries
 
