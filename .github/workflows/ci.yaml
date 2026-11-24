@@ -60,5 +60,7 @@ jobs:
       - name: Run shellcheck
         run: pre-commit run shellcheck --all-files --show-diff-on-failure
 
+      # Run even if shellcheck failed, so one run reports both kinds of problem.
       - name: Run shfmt
+        if: ${{ !cancelled() }}
         run: pre-commit run shfmt --all-files --show-diff-on-failure
