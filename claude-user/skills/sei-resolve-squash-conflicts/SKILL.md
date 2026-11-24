@@ -93,11 +93,18 @@ If the error indicates an authentication failure, also ask the user to authentic
      `uv lock --upgrade`). Record a judgment call. If
      regeneration fails (e.g. no network), keep `MERGE_HEAD`'s version, stage it, and continue;
      record the failure, with its error and the lock command to run, for the final summary.
-   - Otherwise, start from `MERGE_HEAD`'s version and re-apply only the stacked branch's own
-     hunks on top of it.
-   - If a stacked-branch hunk touches code that `MERGE_HEAD` changed in a different way (e.g.
-     review fixes pushed to the old base after the fork — `git log --oneline "$BASE..$OLD_TIP"`
-     lists them), merge the intent of both and record it as a **judgment call** for the summary.
+   - Otherwise, run `${CLAUDE_SKILL_DIR}/scripts/merge-on-base "$BASE" <path>`. It redoes the
+     three-way merge with `BASE` as the ancestor, so it merges only the stacked branch's own
+     changes and the target's changes since `BASE`, and writes the result over the path. It
+     prints `MERGE: CLEAN`, `MERGE: CONFLICTS <n>` (diff3 blocks labeled `MERGE_HEAD`, `BASE`
+     and `HEAD` remain where both sides changed the same lines), or `ERROR: …` (e.g. a binary
+     file). On an error, start from `MERGE_HEAD`'s version and re-apply the stacked branch's
+     own hunks by hand. Do not use `git apply --3way`: it rejects paths with unmerged index
+     entries.
+   - If a stacked-branch hunk touches code that `MERGE_HEAD` changed in a different way (each
+     conflict block `merge-on-base` leaves is one; review fixes pushed to the old base after the
+     fork are typical — `git log --oneline "$BASE..$OLD_TIP"` lists them), merge the intent of
+     both and record it as a **judgment call** for the summary.
    - modify/delete, `MERGE_HEAD` deleted the file: if the stacked branch made no own changes to
      it, delete it; otherwise keep the file and record a judgment call.
    - modify/delete, `HEAD` deleted the file:
