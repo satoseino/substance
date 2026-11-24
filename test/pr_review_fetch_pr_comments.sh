@@ -153,7 +153,8 @@ first_label_in_thread_wins() { #@test
 no_carriage_returns() { #@test
   run_script "$PR_URL" M2
 
-  run ! grep -q $'\r' "$outfile"
+  # -1, not !: grep exits 2 on a missing file, which must not count as a pass.
+  run -1 grep -q $'\r' "$outfile"
 }
 
 no_comments() { #@test
