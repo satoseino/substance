@@ -110,13 +110,17 @@ submodule_rejected() { #@test
 }
 
 clean_merge_uses_given_base() { #@test
+  # own reverts base's line 2. Against <base> that revert is an own change and
+  # wins; against Git's merge base `root`, own leaves line 2 alone and squash's
+  # `two` would win instead.
+  on_own() { text_lines 10 8=eight >f.txt; }
   minimal_scenario
 
   run --separate-stderr "$SCRIPT" "$BASE" f.txt
 
   assert_success
   assert_output 'MERGE: CLEAN'
-  [[ "$(cat f.txt)" == "$(text_lines 10 2=two 5=five 8=eight)" ]]
+  [[ "$(cat f.txt)" == "$(text_lines 10 5=five 8=eight)" ]]
 }
 
 stages_nothing() { #@test
