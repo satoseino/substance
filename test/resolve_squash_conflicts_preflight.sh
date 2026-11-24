@@ -132,6 +132,8 @@ pass_after_fetching_old_tip() { #@test
 }
 
 paths_are_top_level_relative() { #@test
+  # Without --no-relative, diff.relative would make paths relative to dir/.
+  git config diff.relative true
   cd dir || return
 
   run --separate-stderr "$SCRIPT" 1
