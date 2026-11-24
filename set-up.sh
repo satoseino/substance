@@ -4,21 +4,6 @@ set -eu -o pipefail
 
 source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lib/utils.sh"
 
-# Print the fully resolved target of a symlink, so a relative target is
-# resolved against the symlink's own directory rather than the cwd.
-# Args:
-#   $1: symlink path
-# Returns: 0 if the target exists, 1 otherwise
-_get_symlink_target() {
-  readlink -f "$1" || true
-
-  if [[ -e "$1" ]]; then
-    return 0
-  fi
-
-  return 1
-}
-
 # Check whether a symlink points into a given directory, i.e. whether it was
 # created by this script and is therefore safe for it to remove. Works for
 # broken symlinks too.
@@ -46,25 +31,36 @@ _points_into() {
 _link_files() {
   local -n base_names="$3"
 
-  local name target_now
+  local name backup
 
   for name in "${base_names[@]}"; do
-    if [[ -L "$1/$name" ]] && ! target_now="$(_get_symlink_target "$1/$name")"; then
-      sei::log_info "Symlink target $target_now does not exist. Removing symlink"
+    if [[ -L "$1/$name" && ! -e "$1/$name" ]]; then
+      sei::log_info "Symlink $1/$name is broken (target $(readlink "$1/$name")). Removing symlink"
 
       unlink "$1/$name"
-    elif [[ -L "$1/$name" ]] && [[ "$2/$name" -ef "$target_now" ]]; then
+    elif [[ -L "$1/$name" ]] && [[ "$1/$name" -ef "$2/$name" ]]; then
       # If already correctly symlinked, continue.
       continue
     elif [[ -L "$1/$name" ]]; then
-      sei::log_info "$name is symlinked to $target_now. Removing symlink"
+      sei::log_info "$name is symlinked to $(readlink -f "$1/$name"). Removing symlink"
 
       unlink "$1/$name"
     elif [[ -f "$1/$name" ]]; then
-      # If the ln target already exists as a regular file, remove it.
-      sei::log_info "Removing existing file $name"
+      # If the ln target already exists as a regular file, back it up rather
+      # than deleting it, so a first run never destroys user data.
+      backup="$1/$name.bak.$(date +%Y%m%d%H%M%S)"
 
-      rm "$1/$name"
+      # Explicit check instead of `mv -n`, whose exit status differs between
+      # GNU coreutils versions and BSD.
+      if [[ -e "$backup" ]]; then
+        sei::log_error "Cannot back up $1/$name: $backup already exists"
+
+        continue
+      fi
+
+      mv "$1/$name" "$backup"
+
+      sei::log_info "Backed up existing file $1/$name to $backup"
     elif [[ -e "$1/$name" ]]; then
       # If the ln target exists as anything else (e.g. a directory), leave it
       # alone: ln -s would otherwise create the symlink inside it.
@@ -89,16 +85,15 @@ _link_files() {
 _ensure_symlink() {
   local link_path="$1"
   local target_path="$2"
-  local target_now
 
-  if [[ -L "$link_path" ]] && ! target_now="$(_get_symlink_target "$link_path")"; then
-    sei::log_info "Symlink target $target_now does not exist. Removing symlink"
+  if [[ -L "$link_path" && ! -e "$link_path" ]]; then
+    sei::log_info "Symlink $link_path is broken (target $(readlink "$link_path")). Removing symlink"
 
     unlink "$link_path"
-  elif [[ -L "$link_path" ]] && [[ "$target_now" -ef "$target_path" ]]; then
+  elif [[ -L "$link_path" ]] && [[ "$link_path" -ef "$target_path" ]]; then
     return 0
   elif [[ -L "$link_path" ]]; then
-    sei::log_info "$link_path is incorrectly symlinked to $target_now. Removing symlink"
+    sei::log_info "$link_path is incorrectly symlinked to $(readlink -f "$link_path"). Removing symlink"
 
     unlink "$link_path"
   elif [[ -e "$link_path" ]]; then
