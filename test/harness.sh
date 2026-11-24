@@ -29,6 +29,16 @@ fake_gh_applies_jq() { #@test
   assert_output 'test-user'
 }
 
+fake_gh_jq_prints_objects_compact() { #@test
+  use_fake_gh
+  fake_gh_respond api_rate_limit '{"resources":{"core":{"limit":5000}}}'
+
+  run gh api rate_limit --jq '.resources.core | {limit}'
+
+  assert_success
+  assert_output '{"limit":5000}'
+}
+
 fake_gh_jq_null_prints_empty() { #@test
   use_fake_gh
   fake_gh_respond auth '{"hosts":{}}'

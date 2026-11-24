@@ -41,7 +41,8 @@ main() {
 
   if ((has_jq)); then
     local result
-    result="$(jq -r "$jq_expr" <"$FAKE_GH_DIR/$key.stdout")"
+    # -c: real gh prints object/array results compact on a non-TTY stdout.
+    result="$(jq -rc "$jq_expr" <"$FAKE_GH_DIR/$key.stdout")"
     if [[ $result == null ]]; then
       echo
     else
