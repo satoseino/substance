@@ -26,7 +26,7 @@ Except with `-h`, prints one of the following to stdout for consumption by an LL
     VERIFY: MATCH
 
     VERIFY: MISMATCH
-    <kind>	<path>
+    <kind>	<staged>	<path>
     ...
 
     ERROR: <reason>
@@ -36,6 +36,13 @@ where <kind> is one of:
     only-actual     the staged result differs from MERGE_HEAD there, but the path has no own changes
     differs         both sides change the path, with different hunk bodies
     binary-differs  both sides change the binary path, and its staged blob differs from HEAD's
+
+and <staged> says which version of the path is staged:
+    =HEAD           identical to HEAD's: the target's changes to it since <base> were all dropped
+    =MERGE_HEAD     identical to MERGE_HEAD's: the stacked branch's own changes to it were all dropped
+    mixed           neither
+
+A path absent from both the index and a commit counts as identical to it.
 
 Always exits 0; the outcome is conveyed by stdout alone.
 
@@ -65,6 +72,19 @@ changed_lines() {
 # index), or nothing if the path is absent there.
 blob_of() {
   git rev-parse -q --verify "$1:$2" 2>/dev/null || true
+}
+
+# Prints which version of the path is staged: `=HEAD`, `=MERGE_HEAD`, or `mixed`.
+staged_version() {
+  local staged
+  staged=$(blob_of "" "$1")
+  if [[ $staged == "$(blob_of HEAD "$1")" ]]; then
+    echo "=HEAD"
+  elif [[ $staged == "$(blob_of MERGE_HEAD "$1")" ]]; then
+    echo "=MERGE_HEAD"
+  else
+    echo "mixed"
+  fi
 }
 
 main() {
@@ -128,19 +148,20 @@ main() {
     return 0
   fi
 
-  local mismatches="" path in_expected in_actual expected_lines actual_lines
+  local mismatches="" path kind in_expected in_actual expected_lines actual_lines
   while IFS= read -r path; do
     [[ -z $path ]] && continue
 
+    kind=""
     in_expected=no
     in_actual=no
     grep -qxF -- "$path" <<<"$expected_paths" && in_expected=yes
     grep -qxF -- "$path" <<<"$actual_paths" && in_actual=yes
 
     if [[ $in_expected == yes && $in_actual == no ]]; then
-      mismatches+="only-expected	$path"$'\n'
+      kind=only-expected
     elif [[ $in_expected == no && $in_actual == yes ]]; then
-      mismatches+="only-actual	$path"$'\n'
+      kind=only-actual
     elif [[ $in_expected == yes && $in_actual == yes ]]; then
       if ! expected_lines=$(changed_lines "$base" HEAD -- "$path" 2>"$stderr_file") ||
         ! actual_lines=$(changed_lines --cached MERGE_HEAD -- "$path" 2>"$stderr_file"); then
@@ -151,11 +172,15 @@ main() {
 
       if grep -q '^Binary files ' <<<"$expected_lines"$'\n'"$actual_lines"; then
         if [[ "$(blob_of HEAD "$path")" != "$(blob_of "" "$path")" ]]; then
-          mismatches+="binary-differs	$path"$'\n'
+          kind=binary-differs
         fi
       elif [[ $expected_lines != "$actual_lines" ]]; then
-        mismatches+="differs	$path"$'\n'
+        kind=differs
       fi
+    fi
+
+    if [[ -n $kind ]]; then
+      mismatches+="$kind	$(staged_version "$path")	$path"$'\n'
     fi
   done < <(printf '%s\n%s\n' "$expected_paths" "$actual_paths" | sort -u)
 

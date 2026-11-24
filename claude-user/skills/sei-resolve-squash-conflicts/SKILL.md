@@ -159,14 +159,20 @@ If the error indicates an authentication failure, also ask the user to authentic
    - actual: `git diff --cached MERGE_HEAD` (target vs. what `git merge --continue` will commit)
 
    Run `${CLAUDE_SKILL_DIR}/scripts/verify-own-changes "$BASE"`. It prints `VERIFY: MATCH`, or
-   `VERIFY: MISMATCH` followed by one `<kind>\t<path>` line per path where the two diffs differ
-   (`only-expected`, `only-actual`, `differs`, `binary-differs`; run it with `-h` for their
-   meaning), or `ERROR: …` — on an error, fall back to comparing the two diffs directly. It
-   compares changed lines together with one line of context, so a hunk that landed in the
-   wrong place is reported as `differs`, and so is a hunk next to a line `MERGE_HEAD` changed.
-   For each listed text path, compare `git diff "$BASE" HEAD -- <path>` with
-   `git diff --cached MERGE_HEAD -- <path>`. A `binary-differs` path is a binary file whose
-   staged blob is not `HEAD`'s, i.e. the stacked branch's version of it was not kept.
+   `VERIFY: MISMATCH` followed by one `<kind>\t<staged>\t<path>` line per path where the two
+   diffs differ, or `ERROR: …` — on an error, fall back to comparing the two diffs directly.
+   `<kind>` is `only-expected`, `only-actual`, `differs` or `binary-differs` (run the script
+   with `-h` for their meaning). It compares changed lines together with one line of context,
+   so a hunk that landed in the wrong place is reported as `differs`, and so is a hunk next to a
+   line `MERGE_HEAD` changed. A `binary-differs` path is a binary file whose staged blob is not
+   `HEAD`'s, i.e. the stacked branch's version of it was not kept. `<staged>` triages the rest:
+   - `=HEAD`: the staged file is `HEAD`'s, so every target change to it since `BASE` was
+     dropped. Accept it only when each dropped change is a judgment call from step 2 or 4;
+     `git diff "$BASE" MERGE_HEAD -- <path>` lists them.
+   - `=MERGE_HEAD`: every own change to the path was dropped. Accept it only when `MERGE_HEAD`
+     already contains them; otherwise it is a resolution mistake.
+   - `mixed`: compare `git diff "$BASE" HEAD -- <path>` with
+     `git diff --cached MERGE_HEAD -- <path>`.
 
    Every hunk in *expected* should appear in *actual*, and every hunk in *actual* should trace
    back to *expected*. Investigate each mismatch — including in auto-merged files that never
