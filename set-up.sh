@@ -4,14 +4,37 @@ set -eu -o pipefail
 
 source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lib/utils.sh"
 
+# Print the fully resolved target of a symlink, so a relative target is
+# resolved against the symlink's own directory rather than the cwd.
+# Args:
+#   $1: symlink path
+# Returns: 0 if the target exists, 1 otherwise
 _get_symlink_target() {
-  readlink "$1"
+  readlink -f "$1" || true
 
   if [[ -e "$1" ]]; then
     return 0
   fi
 
   return 1
+}
+
+# Check whether a symlink points into a given directory, i.e. whether it was
+# created by this script and is therefore safe for it to remove. Works for
+# broken symlinks too.
+# Args:
+#   $1: symlink path
+#   $2: directory (canonical absolute path)
+# Returns: 0 if the symlink's target is under the directory, 1 otherwise
+_points_into() {
+  local target
+
+  # readlink -f fails on a broken symlink (and GNU readlink prints nothing when
+  # a parent of the target is missing); fall back to the raw target, which is
+  # absolute for every symlink this script creates.
+  target="$(readlink -f "$1")" || target="$(readlink "$1")" || return 1
+
+  [[ "$target" == "$2"/* ]]
 }
 
 # Create symlinks in source_dir and point them to actual files in sink_dir.
@@ -169,9 +192,9 @@ main() {
 
   mapfile -t skills < <(find "$HOME/.claude/skills" -maxdepth 1 -mindepth 1 -type l)
 
-  # Clean up stale symlinks in ~/.claude/skills
+  # Clean up stale symlinks in ~/.claude/skills created by this script
   for name in "${skills[@]}"; do
-    if [[ ! -e "$(readlink "$name")" ]]; then
+    if [[ ! -e "$name" ]] && _points_into "$name" "$substance_dir"; then
       sei::log_info "Skill symlink $name should no longer exist. Removing"
 
       unlink "$name"
@@ -187,11 +210,12 @@ main() {
 
   _link_files "$HOME/.local/bin" "$substance_dir/bin" "binaries"
 
-  mapfile -t binaries < <(find "$HOME/.local/bin" -type l)
+  mapfile -t binaries < <(find "$HOME/.local/bin" -maxdepth 1 -mindepth 1 -type l)
 
-  # Clean up symlinks in ~/.local/bin
+  # Clean up stale symlinks in ~/.local/bin created by this script. The folder
+  # is shared with other installers, whose symlinks must be left alone.
   for name in "${binaries[@]}"; do
-    if [[ ! -x "$(readlink "$name")" ]]; then
+    if [[ ! -x "$name" ]] && _points_into "$name" "$substance_dir"; then
       sei::log_info "Script $name should no longer exist. Removing"
 
       unlink "$name"
@@ -201,9 +225,13 @@ main() {
   local -a dotfiles
   mapfile -t dotfiles < <(find "$HOME" -maxdepth 1 -mindepth 1 -type l)
 
-  # Clean up symlinks to dot files
+  # Clean up stale symlinks to dot files created by this script
   for name in "${dotfiles[@]}"; do
-    if [[ ! -e "$(readlink "$name")" ]] || [[ "$prefix" != "fedora" && "$name" == "$HOME/.tmux.conf" ]]; then
+    if ! _points_into "$name" "$substance_dir"; then
+      continue
+    fi
+
+    if [[ ! -e "$name" ]] || [[ "$prefix" != "fedora" && "$name" == "$HOME/.tmux.conf" ]]; then
       sei::log_info "Dot file $name should no longer exist. Removing"
 
       unlink "$name"
