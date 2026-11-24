@@ -49,11 +49,28 @@ fake_gh_fails_on_unregistered_call() { #@test
 }
 
 path_without_gh_hides_only_gh() { #@test
+  local tool
   use_path_without_gh
 
   run ! command -v gh
-  run -0 command -v git
-  run -0 command -v jq
-  run -0 command -v mktemp
-  run -0 command -v readlink
+  for tool in "${NO_GH_TOOLS[@]}"; do
+    run -0 command -v "$tool"
+  done
+}
+
+path_without_gh_links_extra_tools() { #@test
+  use_path_without_gh sort
+
+  run -0 command -v sort
+  run ! command -v gh
+}
+
+path_without_gh_fails_on_unknown_or_gh_tool() { #@test
+  run --separate-stderr use_path_without_gh no-such-tool-xyz
+  assert_failure
+  [[ $stderr == *"'no-such-tool-xyz' not found on PATH"* ]]
+
+  run --separate-stderr use_path_without_gh gh
+  assert_failure
+  [[ $stderr == *"refusing to link gh"* ]]
 }

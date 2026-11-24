@@ -177,8 +177,10 @@ Conventions:
 - Every test file runs `load "test_helper/common"`, and its `setup()` calls `common_setup` first (points `TMPDIR` at the
   per-test temp dir).
 - Build script paths from `$SKILLS_DIR` (set by `test/setup_suite.bash`), e.g. `"$SKILLS_DIR/sei-pr-review/scripts/verify-sha"`.
-- Stub `gh` with `use_fake_gh` and `fake_gh_respond KEY STDOUT [EXIT [STDERR]]`; use `use_path_without_gh` to simulate
-  `gh` not being installed. Tests must never invoke the real `gh` or touch the network.
+- Stub `gh` with `use_fake_gh` and `fake_gh_respond KEY STDOUT [EXIT [STDERR]]`; use `use_path_without_gh [TOOL...]` to
+  simulate `gh` not being installed. It leaves only the tools in `NO_GH_TOOLS` (in `test/test_helper/common.bash`) plus
+  any `TOOL`s on `PATH`. When a skill script starts using a new external command, add it to `NO_GH_TOOLS`. Tests must
+  never invoke the real `gh` or touch the network.
 
 New or changed skill scripts must come with tests in `test/`.
 

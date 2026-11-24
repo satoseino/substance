@@ -28,24 +28,28 @@ fake_gh_respond() {
   printf '%s' "$stderr" >"$FAKE_GH_DIR/$key.stderr"
 }
 
-# Replace PATH with a single folder holding symlinks to every executable on
-# the current PATH except `gh`. Dropping PATH entries is not enough: on
-# GitHub's Ubuntu runner `gh` lives in /usr/bin next to git and jq.
+# Executables the skill scripts use. `bash` is needed because every script
+# starts with `#!/usr/bin/env bash`.
+NO_GH_TOOLS=(bash cat dirname git jq mktemp readlink rm sed tr)
+
+# use_path_without_gh [EXTRA_TOOL...]
+# Replace PATH with a single folder holding symlinks to NO_GH_TOOLS plus any
+# EXTRA_TOOLs, resolved against the current PATH; `gh` is never linked.
+# Dropping PATH entries is not enough: on GitHub's Ubuntu runner `gh` lives
+# in /usr/bin next to git and jq.
 use_path_without_gh() {
-  local bin_dir="$BATS_TEST_TMPDIR/no-gh-bin" dir file name
-  local -a dirs
+  local bin_dir="$BATS_TEST_TMPDIR/no-gh-bin" tool file
   mkdir -p "$bin_dir"
-  IFS=: read -r -a dirs <<<"$PATH"
-  for dir in "${dirs[@]}"; do
-    [[ -d $dir ]] || continue
-    for file in "$dir"/*; do
-      name=${file##*/}
-      [[ $name == gh ]] && continue
-      [[ -f $file && -x $file ]] || continue
-      # First match wins, as with PATH lookup.
-      [[ -e $bin_dir/$name || -L $bin_dir/$name ]] && continue
-      ln -s "$file" "$bin_dir/$name"
-    done
+  for tool in "${NO_GH_TOOLS[@]}" "$@"; do
+    if [[ $tool == gh ]]; then
+      echo "use_path_without_gh: refusing to link gh" >&2
+      return 1
+    fi
+    if ! file=$(type -P "$tool"); then
+      echo "use_path_without_gh: '$tool' not found on PATH" >&2
+      return 1
+    fi
+    ln -sf "$file" "$bin_dir/$tool"
   done
   export PATH="$bin_dir"
 }
