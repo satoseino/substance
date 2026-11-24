@@ -100,9 +100,9 @@ If the error indicates an authentication failure, also ask the user to authentic
      changes and the target's changes since `BASE`, and writes the result over the path. It
      prints `MERGE: CLEAN`, `MERGE: CONFLICTS <n>` (diff3 blocks remain where both sides
      changed the same lines, in Git's order: `<<<<<<< HEAD`, `||||||| BASE`, `=======`,
-     `>>>>>>> MERGE_HEAD`), or `ERROR: …` (e.g. a binary file). On an error, start from `MERGE_HEAD`'s version and re-apply the stacked branch's
-     own hunks by hand. Do not use `git apply --3way`: it rejects paths with unmerged index
-     entries.
+     `>>>>>>> MERGE_HEAD`), or `ERROR: …` (e.g. a binary file). On an error, start from
+     `MERGE_HEAD`'s version and re-apply the stacked branch's own hunks by hand. Do not use
+     `git apply --3way`: it rejects paths with unmerged index entries.
    - If a stacked-branch hunk touches code that `MERGE_HEAD` changed in a different way (each
      conflict block `merge-on-base` leaves is one; review fixes pushed to the old base after the
      fork are typical — `git log --oneline "$BASE..$OLD_TIP"` lists them), merge the intent of
@@ -137,8 +137,9 @@ If the error indicates an authentication failure, also ask the user to authentic
    binary) leaves the file untouched; step 6 checks those paths. Then `git diff --name-only`
    lists the paths where the result differs from Git's auto-merge. For each one, read
    `git diff -- <path>`, keep the `merge-on-base` result unless that diff shows Git's was right,
-   resolve any conflict blocks as in step 2, grep for conflict markers, and stage the path. To keep Git's result instead, restore it from the index
-   with `git cat-file --filters :<path> > <path>`. Record each such path as a judgment call.
+   resolve any conflict blocks as in step 2, grep for conflict markers, and stage the path. To
+   keep Git's result instead, restore it from the index with
+   `git cat-file --filters :<path> > <path>`. Record each such path as a judgment call.
 4. **Extend own renames and removals to the target's new code.** If the stacked branch's own
    changes include a rename, a library or API migration, or another mechanical replacement
    applied across the codebase (e.g. `import httpx` → `import httpx2`, a renamed function or
