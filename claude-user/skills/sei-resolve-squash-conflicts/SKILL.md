@@ -48,7 +48,8 @@ contains. The stacked branch's **own changes** — the only thing it should add 
   `git show` for this: it prints the raw blob and skips checkout filters (Git LFS smudge, eol
   conversion, `ident`, `working-tree-encoding`).
 - Resolve conflicts only. Do not refactor, reformat, or "improve" code while resolving. The one
-  exception is step 4: extending the stacked branch's own sweeping changes to the target's new code.
+  exception is step 4: extending the stacked branch's own renames and removals to the target's
+  new code.
 - A file may be resolved by a small inline script (e.g. one that picks a side per conflict block
   and applies a substitution), not only by hand edits; the conflict-marker grep before staging
   still applies.
@@ -106,6 +107,13 @@ If the error indicates an authentication failure, also ask the user to authentic
      conflict block `merge-on-base` leaves is one; review fixes pushed to the old base after the
      fork are typical — `git log --oneline "$BASE..$OLD_TIP"` lists them), merge the intent of
      both and record it as a **judgment call** for the summary.
+   - If the target changed code that the stacked branch's own changes delete or replace (e.g. a
+     review fix to a function the stacked branch removed), keep the deletion: do not bring the
+     code back to carry the change. Record a judgment call that names the target's change (its
+     commit in `git log --oneline "$BASE..$OLD_TIP"`, if it is one) and says whether the stacked
+     branch's replacement code addresses the concern that change fixed. Read the replacement to
+     decide; do not assume. If it does not, or you cannot tell, flag it as an open question in
+     the summary rather than fixing it.
    - modify/delete, `MERGE_HEAD` deleted the file: if the stacked branch made no own changes to
      it, delete it; otherwise keep the file and record a judgment call.
    - modify/delete, `HEAD` deleted the file:
@@ -129,14 +137,18 @@ If the error indicates an authentication failure, also ask the user to authentic
    blocks as in step 2, grep for conflict markers, and stage the path. To keep Git's result
    instead, restore it from the index with `git cat-file --filters :<path> > <path>`. Record each such path as a
    judgment call.
-4. **Extend sweeping own changes to the target's new code.** If the stacked branch's own changes
-   include a rename, a library or API migration, or another mechanical replacement applied across
-   the codebase (e.g. `import httpx` → `import httpx2`, a renamed function or test), the target may
-   have added new uses of the old form, both in conflicted paths and in auto-merged ones that no
-   conflict flagged. Grep the working-tree version of every path in `TARGET_CHANGES` (skip deleted
-   ones) for the old symbols, module names and identifiers, including in comments and docstrings.
-   Apply the same replacement to each target-introduced occurrence, re-stage the path, and record
-   each one as a judgment call. Skip this step if the own changes contain no such sweeping change.
+4. **Extend own renames and removals to the target's new code.** If the stacked branch's own
+   changes include a rename, a library or API migration, or another mechanical replacement
+   applied across the codebase (e.g. `import httpx` → `import httpx2`, a renamed function or
+   test), or remove a function, class, module or other symbol, the target may have added new uses
+   of the old form — e.g. a test for a review fix to removed code — both in conflicted paths and
+   in auto-merged ones that no conflict flagged. Grep the working-tree version of every path in
+   `TARGET_CHANGES` (skip deleted ones) for the old or removed symbols, module names and
+   identifiers, including in comments and docstrings. Apply the same replacement to each
+   target-introduced occurrence of a renamed or migrated form. Drop a target-introduced use of a
+   removed symbol, or switch it to the replacement when that is mechanical, and record it under
+   step 2's removed-code judgment call. Re-stage each path and record each change as a judgment
+   call. Skip this step if the own changes contain no such rename, migration or removal.
 5. **No leftover markers or stray edits.** `git diff --cached --check MERGE_HEAD` must report no
    `leftover conflict marker` lines, and `git diff` (working tree vs. index) must be empty —
    anything there is an unstaged edit that the merge would not include. `--check` also reports
@@ -190,7 +202,9 @@ Report to the user:
   until the user runs the lock command (give it).
 - The step 3 result: each auto-merged path whose `merge-on-base` result differed from Git's,
   and which one was kept.
-- The step 4 result: the sweeping changes extended to target code (or that there were none).
+- The step 4 result: the renames and removals extended to target code (or that there were none).
+- Every target change dropped because the stacked branch removed the code it changed, and whether
+  the replacement addresses that change's concern; list the unresolved ones as open questions.
 - The result of the step 6 verification, listing any accepted mismatches.
 - The step 7 results: each check run and its outcome, any failures judged unrelated to the
   resolution and the reasoning behind each, and any check that could not be found or run.
