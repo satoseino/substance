@@ -27,4 +27,5 @@ exclude-signatures = [
     {signature = "6b35104acf7ab1420f21e1fa26a9d988fb79cfe38efe3409ce1e9bdb56140ba0", reason = "made-up skill ID in spec test case is not credential"},
     {signature = "00ef010dfbd47da68bc3ccfe1d4e1b3a080e8e2a69c07327022a2bca88a8f31e", reason = "made-up skill ID in review report test case is not credential"},
     {signature = "b09a81433141465a02fa570410adada04ecc13497a7457bd29a12e060a4b85c2", reason = "file path is not credential"},
+    {signature = "1b370e8c126a080b01e273e328b7dfb5eaf254a7abb334161416084d5363283d", reason = "made-up commit SHA in verify-sha test is not credential"},
 ]

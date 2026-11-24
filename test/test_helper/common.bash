@@ -10,6 +10,27 @@ common_setup() {
   # Confine mktemp output of the scripts under test to the per-test dir,
   # which bats removes afterwards.
   export TMPDIR="$BATS_TEST_TMPDIR"
+  _common::shim_mktemp
+}
+
+# macOS mktemp ignores TMPDIR when called without a template, so put a mktemp
+# first on PATH that passes `-p "$TMPDIR"` in that case. use_path_without_gh
+# resolves tools against the current PATH, so it links this shim too.
+_common::shim_mktemp() {
+  local shim_dir="$BATS_TEST_TMPDIR/shim-bin" real
+  real=$(type -P mktemp)
+  mkdir -p "$shim_dir"
+  cat >"$shim_dir/mktemp" <<EOF
+#!/usr/bin/env bash
+for arg in "\$@"; do
+  if [[ \$arg != -* ]]; then
+    exec "$real" "\$@"
+  fi
+done
+exec "$real" -p "\$TMPDIR" "\$@"
+EOF
+  chmod +x "$shim_dir/mktemp"
+  export PATH="$shim_dir:$PATH"
 }
 
 # Put a fake `gh` first on PATH. Register responses with fake_gh_respond.
