@@ -1,0 +1,7 @@
+[
+  [
+    {"id": 900, "user": {"login": "reviewer"}, "created_at": "2026-01-01T00:00:13Z", "body": "This is change request [C2].\n\nGlobal concern."},
+    {"id": 901, "user": {"login": "author"}, "created_at": "2026-01-01T00:00:14Z", "body": "This is change request [C3]."},
+    {"id": 902, "user": {"login": "reviewer"}, "created_at": "2026-01-01T00:00:15Z", "body": "This is change request [M2].\n\nAlso relevant."}
+  ]
+]

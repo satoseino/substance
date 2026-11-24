@@ -1,0 +1,108 @@
+LABEL_MAP:
+  [C1] → FOUND
+  [C2] → FOUND
+  [C5] → NOT_FOUND
+  [M1] → FOUND
+  [M2] → FOUND
+  [m10] → FOUND
+  [X9] → NOT_FOUND
+
+---
+
+## Thread: [C1]
+
+- AUTHOR: reviewer; PATH: b.py; LINE: 5
+
+> This is change request [C1].
+>
+> Null check.
+
+---
+
+## Thread: [C2]
+
+CREATED: 2026-01-01T00:00:13Z
+
+> This is change request [C2].
+>
+> Global concern.
+
+---
+
+## Thread: [M1]
+
+- AUTHOR: author; PATH: e.py; LINE: 20
+
+> Question?
+
+- AUTHOR: reviewer; PATH: e.py; LINE: 20
+
+> This is change request [M1].
+>
+> Answer.
+
+---
+
+## Thread: [M2]
+
+- AUTHOR: reviewer; PATH: a.py; LINE: 10
+
+> This is change request [M2].
+>
+> Use a constant.
+
+- AUTHOR: author; PATH: a.py; LINE: 10
+
+> Done.
+
+- AUTHOR: reviewer; PATH: a.py; LINE: 10
+
+> This is change request [C5].
+>
+> Later label.
+
+---
+
+## Thread: [M2]
+
+CREATED: 2026-01-01T00:00:15Z
+
+> This is change request [M2].
+>
+> Also relevant.
+
+---
+
+## Thread: [m2]
+
+- AUTHOR: reviewer; PATH: d.py; LINE: 3
+
+> This is change request [m2].
+>
+> Naming.
+
+---
+
+## Thread: [m10]
+
+- AUTHOR: reviewer; PATH: c.py; LINE: (file)
+
+> This is change request [m10].
+>
+> Typo.
+
+---
+
+## Thread: [Q7]
+
+- AUTHOR: reviewer; PATH: f.py; LINE: 1
+
+> This is change request [Q7].
+>
+> Other tier.
+
+---
+
+## Unlinked labels (no matching reviewer comment found):
+- [C5]
+- [X9]
