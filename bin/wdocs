@@ -58,10 +58,10 @@ To move fast, we might not update the spec files afterwards. That is why they ar
 
 EOF
 
-  mkdir -p spec session
+  mkdir -p spec session review
 
   local -a directories
-  mapfile -t directories < <(printf "%s\n" research note investigation review | fzf -m --height=50% --layout=reverse)
+  mapfile -t directories < <(printf "%s\n" research note investigation | fzf -m --height=50% --layout=reverse)
 
   if ((${#directories[@]} > 0)); then
     mkdir -p "${directories[@]}"

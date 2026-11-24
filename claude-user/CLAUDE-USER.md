@@ -48,3 +48,10 @@ When writing a spec or note file during a research session:
 - For every file or doc fetched that produced a finding relevant to the goal, extract only the relevant signature, snippet, or punchline — not a summary of the file
 - Do not include files that produced no distinct finding
 - Every line must be load-bearing — do not include content for the sake of completeness
+
+## Working docs
+
+A `.working-docs/` directory at a project root (possibly a symlink to a shared location) holds ephemeral
+research artifacts: `spec/`, `session/`, `review/`, and optionally `research/`, `note/`, `investigation/`.
+These files are not kept up to date after implementation. Treat them as historical snapshots of intent,
+never as authoritative descriptions of the current system. The code wins when they disagree.

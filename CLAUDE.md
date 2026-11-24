@@ -183,7 +183,3 @@ Conventions:
   never invoke the real `gh` or touch the network.
 
 New or changed skill scripts must come with tests in `test/`.
-
-## Working docs convention
-
-`.working-docs/` (created by the `wdocs new` script) holds ephemeral research artifacts. It always contains `spec/` and `session/` subdirectories. Files here are intentionally not kept up-to-date after implementation — treat them as historical snapshots, not authoritative descriptions.
