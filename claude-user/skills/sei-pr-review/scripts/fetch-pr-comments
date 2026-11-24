@@ -228,7 +228,7 @@ EOF
         echo "- [$u]"
       done
     fi
-  } > "$outfile"
+  } >"$outfile"
 
   echo "$outfile"
 }

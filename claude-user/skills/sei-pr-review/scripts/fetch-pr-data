@@ -69,7 +69,7 @@ EOF
   outfile=$(mktemp)
 
   printf 'PR_TITLE: %s\nBASE_BRANCH: %s\n\nPR_MESSAGE:\n<pr_message>\n%s\n</pr_message>\n' \
-    "$title" "$base_branch" "$body" > "$outfile"
+    "$title" "$base_branch" "$body" >"$outfile"
 
   echo "$outfile"
 }
