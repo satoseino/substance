@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+
+set -eu -o pipefail
+
+main() {
+  if (($# > 0)) && [[ $1 == "-h" ]]; then
+    cat <<'EOF'
+Usage: merge-on-base [-h] <base> <path>
+
+Redoes the three-way merge of one path of an in-progress merge with <base> as the
+common ancestor, instead of the merge base Git used. Git's merge base predates the
+original old-base commits, so Git merges them against the squash commit as competing
+edits. With <base> as the ancestor, only the stacked branch's own changes
+(<base> → HEAD) and the target's changes since <base> (<base> → MERGE_HEAD) are merged.
+
+Writes the result over <path> in the working tree, with checkout filters applied to it.
+Like Git, it merges the three versions in their repository form, except for a path with
+a `filter` attribute (e.g. Git LFS), whose versions are merged with filters applied.
+Overlapping changes are left as diff3-style conflict blocks in Git's order: HEAD's
+lines first, then BASE's, then MERGE_HEAD's, labeled with those names. Stages nothing.
+Requires Git 2.43 or later.
+
+<path> is relative to the repository's top level, as `git diff --name-only` prints it.
+It must be a regular text file (not a symlink or submodule) in both HEAD and
+MERGE_HEAD; if <base> lacks it, an empty ancestor is used.
+
+Except with `-h`, prints one of the following to stdout for consumption by an LLM:
+
+    MERGE: CLEAN
+
+    MERGE: CONFLICTS <n>
+
+    ERROR: <reason>
+
+Always exits 0; the outcome is conveyed by stdout alone.
+
+ARGUMENTS:
+    base        BASE from preflight: the last old-base commit the stacked branch contains
+    path        The path to merge, relative to the repository's top level
+
+OPTIONS:
+    -h          Show this help message
+EOF
+
+    return 0
+  fi
+
+  if (($# != 2)); then
+    echo "ERROR: merge-on-base takes exactly two positional arguments: <base> <path>"
+
+    return 0
+  fi
+
+  local base=$1 path=$2
+
+  # <path> is fed to `git ls-tree` as a pathspec; match it literally.
+  export GIT_LITERAL_PATHSPECS=1
+
+  local toplevel
+  if ! toplevel=$(git rev-parse --show-toplevel 2>&1) || ! cd "$toplevel"; then
+    echo "ERROR: cannot enter the repository's top level: $toplevel"
+
+    return 0
+  fi
+
+  if ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+    echo "ERROR: no merge in progress (MERGE_HEAD missing)"
+
+    return 0
+  fi
+
+  if ! git rev-parse -q --verify "$base^{commit}" >/dev/null; then
+    echo "ERROR: '$base' is not a commit"
+
+    return 0
+  fi
+
+  # A symlink is a blob too, but writing the merged result through it would overwrite
+  # its target, so only regular files (mode 100644 or 100755) are accepted.
+  local rev mode
+  for rev in HEAD MERGE_HEAD; do
+    mode=$(git ls-tree --format='%(objectmode)' "$rev" -- "$path" 2>/dev/null || true)
+    if [[ -z $mode ]]; then
+      echo "ERROR: '$path' is absent from $rev; resolve it as a modify/delete case"
+
+      return 0
+    fi
+    if [[ $mode != 100644 && $mode != 100755 ]]; then
+      echo "ERROR: '$path' is not a regular file in $rev (mode $mode); resolve it by hand"
+
+      return 0
+    fi
+  done
+
+  if ! tmp_dir=$(mktemp -d 2>&1); then
+    echo "ERROR: $tmp_dir"
+
+    return 0
+  fi
+  trap 'rm -rf "$tmp_dir"' EXIT
+
+  # The ancestor is <base>'s blob, or the empty blob when <base> lacks the path.
+  local base_spec="$base:$path"
+  if [[ "$(git cat-file -t "$base_spec" 2>/dev/null)" != blob ]] &&
+    ! base_spec=$(git hash-object -w --stdin </dev/null 2>"$tmp_dir/stderr"); then
+    echo "ERROR: $(<"$tmp_dir/stderr")"
+
+    return 0
+  fi
+
+  # Like Git's own merge, merge the blobs in their repository (clean) form and apply checkout
+  # filters only to the result: smudging the three inputs first would make e.g. an `ident`
+  # line differ in all of them and always conflict. A `filter` driver (e.g. Git LFS) is the
+  # exception: its clean form is a stand-in such as an LFS pointer, whose merge is
+  # meaningless, so with one set the inputs are smudged and merged as files instead.
+  local filter_attr
+  filter_attr=$(git check-attr -z filter -- "$path" 2>/dev/null | tr '\0' '\n' | sed -n 3p || true)
+
+  # Exit status: 0 when clean, the number of conflicts (capped at 127) otherwise, and
+  # above 127 on errors such as binary input. HEAD is the current side, as in Git's own
+  # conflict markers: its lines come first in each conflict block.
+  local rc=0 merged
+  if [[ -z $filter_attr || $filter_attr == unspecified || $filter_attr == unset ]]; then
+    merged=$(git merge-file --object-id --diff3 -L HEAD -L BASE -L MERGE_HEAD \
+      "HEAD:$path" "$base_spec" "MERGE_HEAD:$path" 2>"$tmp_dir/stderr") || rc=$?
+    if ((rc <= 127)) &&
+      ! git cat-file --filters --path="$path" "$merged" >"$tmp_dir/out" 2>"$tmp_dir/stderr"; then
+      echo "ERROR: $(<"$tmp_dir/stderr")"
+
+      return 0
+    fi
+  else
+    local rev spec
+    for rev in HEAD base MERGE_HEAD; do
+      spec="$rev:$path"
+      [[ $rev == base ]] && spec=$base_spec
+      if ! git cat-file --filters --path="$path" "$spec" >"$tmp_dir/$rev" 2>"$tmp_dir/stderr"; then
+        echo "ERROR: $(<"$tmp_dir/stderr")"
+
+        return 0
+      fi
+    done
+    git merge-file -p --diff3 -L HEAD -L BASE -L MERGE_HEAD \
+      "$tmp_dir/HEAD" "$tmp_dir/base" "$tmp_dir/MERGE_HEAD" >"$tmp_dir/out" 2>"$tmp_dir/stderr" || rc=$?
+  fi
+  if ((rc > 127)); then
+    echo "ERROR: git merge-file failed for '$path': $(<"$tmp_dir/stderr")"
+
+    return 0
+  fi
+
+  # Redirect instead of moving, so the working-tree file keeps its mode.
+  if ! cat "$tmp_dir/out" >"$path" 2>"$tmp_dir/stderr"; then
+    echo "ERROR: cannot write '$path': $(<"$tmp_dir/stderr")"
+
+    return 0
+  fi
+
+  if ((rc == 0)); then
+    echo "MERGE: CLEAN"
+  else
+    echo "MERGE: CONFLICTS $rc"
+  fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi
