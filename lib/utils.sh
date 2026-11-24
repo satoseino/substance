@@ -36,11 +36,7 @@ sei::get_env_prefix() {
     __prefix_var=ascd
     ;;
   *)
-    if [[ "$(whoami)" == "vscode" ]]; then
-      __prefix_var=sei
-    else
-      __prefix_var=""
-    fi
+    __prefix_var=""
     ;;
   esac
 

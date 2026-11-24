@@ -20,7 +20,7 @@ setup() {
 
   # Keeps pre-commit off PATH, so set-up.sh never writes to the real
   # .git/hooks.
-  use_path_without_gh find ls mkdir ln unlink mv date touch hostname whoami chmod sort
+  use_path_without_gh find ls mkdir ln unlink mv date touch hostname chmod sort
 }
 
 # assert_links_to LINK TARGET
