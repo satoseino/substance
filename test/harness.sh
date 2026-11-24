@@ -84,3 +84,16 @@ path_without_gh_fails_on_unknown_or_gh_tool() { #@test
   assert_failure
   [[ $stderr == *"refusing to link gh"* ]]
 }
+
+mktemp_lands_in_test_tmpdir() { #@test
+  local f d
+  f=$(mktemp)
+  d=$(mktemp -d)
+
+  [[ $f == "$BATS_TEST_TMPDIR"/* && -f $f ]]
+  [[ $d == "$BATS_TEST_TMPDIR"/* && -d $d ]]
+
+  use_path_without_gh
+  f=$(mktemp)
+  [[ $f == "$BATS_TEST_TMPDIR"/* ]]
+}
