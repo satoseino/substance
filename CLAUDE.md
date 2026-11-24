@@ -153,6 +153,35 @@ It is deliberately not named `.claude/`, so Claude Code does not also load these
 
 Skills live in `claude-user/skills/<skill-name>/SKILL.md`. All skill names use the `sei-` prefix. Each `SKILL.md` begins with YAML front matter (`name`, `description`, `allowed-tools`, etc.) followed by the instruction body.
 
+## Testing skill scripts
+
+Scripts under `claude-user/skills/*/scripts/` are tested with [bats-core](https://github.com/bats-core/bats-core),
+vendored as git submodules under `test/`. Initialize them once per clone:
+
+```bash
+git submodule update --init --recursive
+```
+
+Run the suite from the repo root:
+
+```bash
+BATS_FILE_EXTENSION=sh ./test/bats/bin/bats test/
+```
+
+Conventions:
+
+- Test files live flat in `test/*.sh`, named `<skill-prefix>_<script>.sh` (e.g. `pr_review_verify_sha.sh`). Never run
+  bats with `-r`: with `BATS_FILE_EXTENSION=sh` it would pick up `*.sh` files inside the bats submodule. Helper files
+  use the `.bash` extension so they are never collected as tests.
+- Mark each test with the inline marker: `name() { #@test`.
+- Every test file runs `load "test_helper/common"`, and its `setup()` calls `common_setup` first (points `TMPDIR` at the
+  per-test temp dir).
+- Build script paths from `$SKILLS_DIR` (set by `test/setup_suite.bash`), e.g. `"$SKILLS_DIR/sei-pr-review/scripts/verify-sha"`.
+- Stub `gh` with `use_fake_gh` and `fake_gh_respond KEY STDOUT [EXIT [STDERR]]`; use `use_path_without_gh` to simulate
+  `gh` not being installed. Tests must never invoke the real `gh` or touch the network.
+
+New or changed skill scripts must come with tests in `test/`.
+
 ## Working docs convention
 
 `.working-docs/` (created by the `wdocs new` script) holds ephemeral research artifacts. It always contains `spec/` and `session/` subdirectories. Files here are intentionally not kept up-to-date after implementation — treat them as historical snapshots, not authoritative descriptions.
