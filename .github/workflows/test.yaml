@@ -16,6 +16,9 @@ on:
       - ".gitmodules"
       - ".github/workflows/test.yaml"
 
+permissions:
+  contents: read
+
 jobs:
   bats-test:
     runs-on: ubuntu-latest
