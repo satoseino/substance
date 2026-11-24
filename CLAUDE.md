@@ -22,9 +22,25 @@ dnf as the primary package manager and Homebrew on Linux (`/home/linuxbrew/.linu
 ./set-up.sh
 ```
 
-`pre-commit` is configured in `.pre-commit-config.yaml` with two hooks:
+`pre-commit` is configured in `.pre-commit-config.yaml` with five hooks:
 - **gelato** — secret scanning on every commit.
-- **shell-cmd-on-change** — automatically re-runs `set-up.sh` on `post-merge` if tracked files changed.
+- **shellcheck** and **shfmt** (`shfmt -w -i 2`) — lint and format the shell files on every commit.
+- **shell-cmd-on-change** `set-up` — automatically re-runs `set-up.sh` on `post-merge` if tracked files changed.
+- **shell-cmd-on-change** `nvim-lazy-restore` — runs `nvim --headless '+Lazy! restore' +qa` on `post-merge` when
+  `nvim/lazy-lock.json` changes.
+
+### Resolving gelato findings
+
+When `gelato` flags a string that is not a secret (typically a long path in a test), do not rewrite the code to dodge it.
+Add the finding's signature to `exclude-signatures` in `tartufo.toml`, with a `reason`:
+
+```toml
+{signature = "<signature from the report>", reason = "file path in set-up.sh test is not credential"},
+```
+
+Prefer this narrowest entry. Reach for `exclude-entropy-patterns` only when one pattern recurs across many lines, as with the
+`$SEI_SUBSTANCE_DIR/lib/*.sh` source paths. Never put the matched string itself in the file. If it is a real secret,
+remove it and rotate it instead. `gelato pre-commit --help` covers the options.
 
 ## Shell version
 
@@ -153,9 +169,9 @@ It is deliberately not named `.claude/`, so Claude Code does not also load these
 
 Skills live in `claude-user/skills/<skill-name>/SKILL.md`. All skill names use the `sei-` prefix. Each `SKILL.md` begins with YAML front matter (`name`, `description`, `allowed-tools`, etc.) followed by the instruction body.
 
-## Testing skill scripts
+## Testing
 
-Scripts under `claude-user/skills/*/scripts/` are tested with [bats-core](https://github.com/bats-core/bats-core),
+Scripts under `claude-user/skills/*/scripts/` and `set-up.sh` (in `test/set_up.sh`) are tested with [bats-core](https://github.com/bats-core/bats-core),
 vendored as git submodules under `test/`. Initialize them once per clone:
 
 ```bash
@@ -181,10 +197,14 @@ Conventions:
   simulate `gh` not being installed. It leaves only the tools in `NO_GH_TOOLS` (in `test/test_helper/common.bash`) plus
   any `TOOL`s on `PATH`. When a skill script starts using a new external command, add it to `NO_GH_TOOLS`. Tests must
   never invoke the real `gh` or touch the network.
+- `set-up.sh` is tested in `test/set_up.sh`, an exception to the `<skill-prefix>_<script>.sh` naming and the
+  `$SKILLS_DIR` rule; it builds paths from `$SUBSTANCE_DIR` instead. Its tests point `HOME` at the per-test dir, pin
+  the prefix with `SEI_WORK_MODE`, and must keep `pre-commit` off `PATH` via `use_path_without_gh`, so they never touch
+  the real `$HOME` or `.git/hooks`.
 
-New or changed skill scripts must come with tests in `test/`.
+New or changed skill scripts, and changes to `set-up.sh`, must come with tests in `test/`.
 
 Agents may run the suite without asking — it is local-only (`gh` is stubbed, no network) — and should do so after
-changing any skill script or test, reporting failures verbatim. To iterate on one file, pass it directly:
+changing any skill script, `set-up.sh`, or test, reporting failures verbatim. To iterate on one file, pass it directly:
 `BATS_FILE_EXTENSION=sh ./test/bats/bin/bats test/<file>.sh`. If `test/bats/` is empty, run
 `git submodule update --init --recursive` first.

@@ -20,7 +20,7 @@ It is tailored to specific machines and a single user's workflow, so expect to a
 
 ## Testing
 
-Skill scripts are tested with [bats-core](https://github.com/bats-core/bats-core), vendored as git submodules under `test/`.
+Skill scripts and `set-up.sh` are tested with [bats-core](https://github.com/bats-core/bats-core), vendored as git submodules under `test/`.
 Initialize them once per clone, then run the suite from the repo root:
 
 ```bash
@@ -28,4 +28,5 @@ git submodule update --init --recursive
 BATS_FILE_EXTENSION=sh ./test/bats/bin/bats test/
 ```
 
-See [CLAUDE.md](./CLAUDE.md#testing-skill-scripts) for test conventions.
+CI runs the suite and `shellcheck`/`shfmt` on every push and PR to `main`.
+See [CLAUDE.md](./CLAUDE.md#testing) for test conventions.

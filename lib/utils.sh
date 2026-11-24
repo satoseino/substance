@@ -35,15 +35,8 @@ sei::get_env_prefix() {
   Kes-MacBook-Pro.*)
     __prefix_var=ascd
     ;;
-  LM-*)
-    __prefix_var=gd
-    ;;
   *)
-    if [[ "$(whoami)" == "vscode" ]]; then
-      __prefix_var=sei
-    else
-      __prefix_var=""
-    fi
+    __prefix_var=""
     ;;
   esac
 

@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  bats-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code with submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Print tool versions
+        run: |
+          bash --version | head -n 1
+          git --version | head -n 1
+          jq --version | head -n 1
+
+      - name: Run bats tests
+        run: BATS_FILE_EXTENSION=sh ./test/bats/bin/bats test/
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # Unpinned on purpose: the local tools also come from Homebrew, so CI
+      # tracks the same release channel. shfmt is not preinstalled on the
+      # runner, and apt's shellcheck lags behind Homebrew. The runner keeps
+      # Homebrew off PATH by default.
+      - name: Install shellcheck and shfmt from Homebrew
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          brew install shellcheck shfmt
+          echo "$(brew --prefix)/bin" >>"$GITHUB_PATH"
+
+      - name: Install pre-commit
+        run: pipx install pre-commit
+
+      - name: Print tool versions
+        run: |
+          shellcheck --version
+          shfmt --version
+          pre-commit --version
+
+      # Running the hooks by ID reuses the file regex from
+      # .pre-commit-config.yaml. The shfmt hook rewrites files, which makes
+      # pre-commit exit non-zero and show the diff.
+      - name: Run shellcheck
+        run: pre-commit run shellcheck --all-files --show-diff-on-failure
+
+      # Run even if shellcheck failed, so one run reports both kinds of problem.
+      - name: Run shfmt
+        if: ${{ !cancelled() }}
+        run: pre-commit run shfmt --all-files --show-diff-on-failure

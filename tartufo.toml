@@ -29,4 +29,6 @@ exclude-signatures = [
     {signature = "b09a81433141465a02fa570410adada04ecc13497a7457bd29a12e060a4b85c2", reason = "file path is not credential"},
     {signature = "1b370e8c126a080b01e273e328b7dfb5eaf254a7abb334161416084d5363283d", reason = "made-up commit SHA in verify-sha test is not credential"},
     {signature = "0aeaaad144d942f185d38ad9f617fb8dc39f211fe51a3964ba1a42b0fc654596", reason = "fixtures path in fetch-single-comment test is not credential"},
+    {signature = "5cacf72c1ae70b07bf26b09d530382d7471e1fb2a6b859e5ee9f70312816c6b3", reason = "file path in set-up.sh test is not credential"},
+    {signature = "a0aa7a959e2ccb36110550b86fa15880c30af885ea1ca843388918b547f99603", reason = "file path in set-up.sh test is not credential"},
 ]
