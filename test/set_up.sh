@@ -154,6 +154,56 @@ regular_file_backed_up() { #@test
   assert_links_to "$HOME/.bashrc" "$SUBSTANCE_DIR/dotfiles/.bashrc"
 }
 
+backup_collision_leaves_file_alone() { #@test
+  # Pin the timestamp so the backup name collides with a pre-existing file.
+  local fake_bin="$BATS_TEST_TMPDIR/fake-date-bin"
+  mkdir -p "$fake_bin"
+  printf '#!/usr/bin/env bash\necho 20260101000000\n' >"$fake_bin/date"
+  chmod +x "$fake_bin/date"
+  export PATH="$fake_bin:$PATH"
+
+  local backup="$HOME/.bashrc.bak.20260101000000"
+  printf 'my own bashrc\n' >"$HOME/.bashrc"
+  printf 'earlier backup\n' >"$backup"
+
+  run --separate-stderr "$SCRIPT"
+
+  assert_success
+  [[ $stderr == *"Cannot back up $HOME/.bashrc: $backup already exists"* ]] ||
+    fail "unexpected stderr: $stderr"
+  refute_output --partial "Backed up existing file $HOME/.bashrc"
+  assert [ -f "$HOME/.bashrc" ]
+  assert [ ! -L "$HOME/.bashrc" ]
+  assert_equal "$(<"$HOME/.bashrc")" 'my own bashrc'
+  assert_equal "$(<"$backup")" 'earlier backup'
+}
+
+ensure_symlink_broken_link_replaced() { #@test
+  mkdir -p "$HOME/.config"
+  ln -s "$BATS_TEST_TMPDIR/missing" "$HOME/.config/nvim"
+
+  run --separate-stderr "$SCRIPT"
+
+  assert_success
+  assert_output --partial "Symlink $HOME/.config/nvim is broken (target $BATS_TEST_TMPDIR/missing). Removing symlink"
+  assert_links_to "$HOME/.config/nvim" "$SUBSTANCE_DIR/nvim"
+}
+
+ensure_symlink_wrong_target_replaced() { #@test
+  local other="$BATS_TEST_TMPDIR/other-nvim"
+  mkdir -p "$other" "$HOME/.config"
+  printf 'keep\n' >"$other/marker"
+  ln -s "$other" "$HOME/.config/nvim"
+
+  run --separate-stderr "$SCRIPT"
+
+  assert_success
+  assert_output --partial "$HOME/.config/nvim is incorrectly symlinked to $(readlink -f "$other"). Removing symlink"
+  assert_links_to "$HOME/.config/nvim" "$SUBSTANCE_DIR/nvim"
+  assert_equal "$(ls -A "$other")" marker
+  assert_equal "$(<"$other/marker")" keep
+}
+
 directory_left_alone() { #@test
   mkdir "$HOME/.bashrc"
 
