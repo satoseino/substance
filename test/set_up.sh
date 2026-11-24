@@ -55,10 +55,8 @@ fresh_install() { #@test
   assert_links_to "$HOME/.config/bat/config" "$SUBSTANCE_DIR/.config/bat/config"
   assert_links_to "$HOME/.config/nvim" "$SUBSTANCE_DIR/nvim"
   assert_links_to "$HOME/.vim/plugin" "$SUBSTANCE_DIR/.vim/plugin"
-
-  local claude_user="$SUBSTANCE_DIR/claude-user"
-  assert_links_to "$HOME/.claude/CLAUDE.md" "$claude_user/CLAUDE-USER.md"
-  assert_links_to "$HOME/.claude/settings.json" "$claude_user/settings.json"
+  assert_links_to "$HOME/.claude/CLAUDE.md" "$SUBSTANCE_DIR/claude-user/CLAUDE-USER.md"
+  assert_links_to "$HOME/.claude/settings.json" "$SUBSTANCE_DIR/claude-user/settings.json"
 
   local -a skills binaries
   mapfile -t skills < <(ls -1 "$SUBSTANCE_DIR/claude-user/skills")
@@ -183,15 +181,13 @@ non_symlink_at_ensure_symlink_path() { #@test
 }
 
 stale_skill_link_removed() { #@test
-  local link_dir="$HOME/.claude/skills"
-  mkdir -p "$link_dir"
-  local skills_src="$SUBSTANCE_DIR/claude-user/skills"
-  ln -s "$skills_src/sei-gone" "$link_dir/sei-gone"
+  mkdir -p "$HOME/.claude/skills"
+  ln -s "$SUBSTANCE_DIR/claude-user/skills/sei-gone" "$HOME/.claude/skills/sei-gone"
 
   run --separate-stderr "$SCRIPT"
 
   assert_success
-  assert [ ! -L "$link_dir/sei-gone" ]
+  assert [ ! -L "$HOME/.claude/skills/sei-gone" ]
 }
 
 stale_bin_link_removed() { #@test

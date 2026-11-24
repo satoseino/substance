@@ -29,6 +29,19 @@ dnf as the primary package manager and Homebrew on Linux (`/home/linuxbrew/.linu
 - **shell-cmd-on-change** `nvim-lazy-restore` — runs `nvim --headless '+Lazy! restore' +qa` on `post-merge` when
   `nvim/lazy-lock.json` changes.
 
+### Resolving gelato findings
+
+When `gelato` flags a string that is not a secret (typically a long path in a test), do not rewrite the code to dodge it.
+Add the finding's signature to `exclude-signatures` in `tartufo.toml`, with a `reason`:
+
+```toml
+{signature = "<signature from the report>", reason = "file path in set-up.sh test is not credential"},
+```
+
+Prefer this narrowest entry. Reach for `exclude-entropy-patterns` only when one pattern recurs across many lines, as with the
+`$SEI_SUBSTANCE_DIR/lib/*.sh` source paths. Never put the matched string itself in the file. If it is a real secret,
+remove it and rotate it instead. `gelato pre-commit --help` covers the options.
+
 ## Shell version
 
 All shell code targets **Bash 5.1+**. Features unavailable in older Bash (e.g. `mapfile`, `compgen -V`, extended globs, `@(...)` patterns) are fair game.
