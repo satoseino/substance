@@ -124,6 +124,9 @@ clean_merge_uses_given_base() { #@test
 }
 
 stages_nothing() { #@test
+  # own reverts base's line 2, so the merged f.txt differs from the version
+  # Git's own merge staged; staging it would change `git ls-files -s`.
+  on_own() { text_lines 10 8=eight >f.txt; }
   minimal_scenario
   local staged_before
   staged_before=$(git ls-files -s f.txt)
