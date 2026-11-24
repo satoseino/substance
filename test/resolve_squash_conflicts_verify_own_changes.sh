@@ -7,7 +7,7 @@ load "test_helper/git_repo"
 
 setup() {
   common_setup
-  SCRIPT="$SKILLS_DIR/sei-resolve-squash-conflicts/scripts"/verify-own-changes
+  SCRIPT="$SKILLS_DIR/sei-resolve-squash-conflicts/scripts/verify-own-changes"
 }
 
 # The correct resolution of the default f.txt.
