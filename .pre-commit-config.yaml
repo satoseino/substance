@@ -1,8 +1,31 @@
 repos:
   - repo: https://github.com/satoseino/gelato
-    rev: "v0.1.0"
+    rev: "v0.2.0"
     hooks:
       - id: gelato
+
+  - repo: local
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck
+        language: system
+        files: &shell_files >-
+          (?x)^(
+            bin/[^/]+|
+            completions/[^/]+|
+            lib/[^/]+\.sh|
+            profile/[^/]+\.bashrc|
+            dotfiles/\.bash(rc|_profile|_logout)|
+            claude-user/skills/[^/]+/scripts/.+|
+            set-up\.sh
+          )$
+
+      - id: shfmt
+        name: shfmt
+        entry: shfmt -w -i 2
+        language: system
+        files: *shell_files
 
   - repo: https://github.com/satoseino/shell-cmd-on-change
     rev: "2.1.0"

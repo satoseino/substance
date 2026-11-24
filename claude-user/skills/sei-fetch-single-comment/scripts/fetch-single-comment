@@ -86,7 +86,7 @@ EOF
     fi
     echo
     _render_blockquote <<<"$body"
-  } > "$outfile"
+  } >"$outfile"
 
   echo "$outfile"
 }
