@@ -44,9 +44,9 @@ contains. The stacked branch's **own changes** — the only thing it should add 
   removes `MERGE_HEAD` and silently ends the merge.
 - To take one side's version of a file, write it out with `git cat-file --filters :2:<path>`
   (ours) or `git cat-file --filters :3:<path>` (theirs) redirected into the file; for a path
-  without conflict stages, use `HEAD:<path>`, `MERGE_HEAD:<path>` or `:<path>` (the index). Do not use
-  `git show` for this: it prints the raw blob and skips checkout filters (Git LFS smudge, eol
-  conversion, `ident`, `working-tree-encoding`).
+  without conflict stages, use `HEAD:<path>`, `MERGE_HEAD:<path>` or `:<path>` (the index). Do
+  not use `git show` for this: it prints the raw blob and skips checkout filters (Git LFS
+  smudge, eol conversion, `ident`, `working-tree-encoding`).
 - Resolve conflicts only. Do not refactor, reformat, or "improve" code while resolving. The one
   exception is step 4: extending the stacked branch's own renames and removals to the target's
   new code.
@@ -77,7 +77,7 @@ If the error indicates an authentication failure, also ask the user to authentic
    unresolved; resolution is complete when it is empty. Cross-reference `TARGET_CHANGES`: a
    conflicted path missing from it is one the target has not changed since `BASE`, and the paths
    in it are the only ones where the target can have brought in new code.
-2. **Resolve each conflicted path**, using `MERGE_HEAD` as the starting point:
+2. **Resolve each conflicted path:**
    - Look at the stacked branch's own change to that path: `git diff "$BASE" HEAD -- <path>`.
    - If the stacked branch did not change the path, the conflict is purely original-vs-squashed
      old-base content: take `MERGE_HEAD`'s version (`git cat-file --filters :3:<path> > <path>`).
@@ -92,9 +92,9 @@ If the error indicates an authentication failure, also ask the user to authentic
      manifests changed: e.g. `uv lock`, `npm install --package-lock-only`, `poetry lock`
      (Poetry 2.0+; `poetry lock --no-update` on 1.x), `cargo update --workspace`. Never use a
      form that re-resolves everything (`poetry lock --regenerate`, `cargo generate-lockfile`,
-     `uv lock --upgrade`). Record a judgment call. If
-     regeneration fails (e.g. no network), keep `MERGE_HEAD`'s version, stage it, and continue;
-     record the failure, with its error and the lock command to run, for the final summary.
+     `uv lock --upgrade`). Record a judgment call. If regeneration fails (e.g. no network),
+     keep `MERGE_HEAD`'s version, stage it, and continue; record the failure, with its error
+     and the lock command to run, for the final summary.
    - Otherwise, run `${CLAUDE_SKILL_DIR}/scripts/merge-on-base "$BASE" <path>`. It redoes the
      three-way merge with `BASE` as the ancestor, so it merges only the stacked branch's own
      changes and the target's changes since `BASE`, and writes the result over the path. It
@@ -130,13 +130,14 @@ If the error indicates an authentication failure, also ask the user to authentic
    wrong ancestor, so a clean auto-merge can still be wrong: e.g. it duplicates a block the
    stacked branch moved, or resurrects old-base code that a review fix removed. Run
    `merge-on-base` on every path in `git diff --name-only "$BASE" HEAD` that was not in step 1's
-   conflicted list. An `ERROR:` (the path is missing from `HEAD` or `MERGE_HEAD`, or is binary)
-   leaves the file untouched; step 6 checks those paths. Then `git diff --name-only` lists the
-   paths where the result differs from Git's auto-merge. For each one, read `git diff -- <path>`,
-   keep the `merge-on-base` result unless that diff shows Git's was right, resolve any conflict
-   blocks as in step 2, grep for conflict markers, and stage the path. To keep Git's result
-   instead, restore it from the index with `git cat-file --filters :<path> > <path>`. Record each such path as a
-   judgment call.
+   conflicted list, except generated lockfiles: if the target also changed one (it is in
+   `TARGET_CHANGES`), handle it as in step 2 instead. An `ERROR:` (the path is missing from
+   `HEAD` or `MERGE_HEAD`, is not a regular file, or is binary) leaves the file untouched; step 6
+   checks those paths. Then `git diff --name-only` lists the paths where the result differs from
+   Git's auto-merge. For each one, read `git diff -- <path>`, keep the `merge-on-base` result
+   unless that diff shows Git's was right, resolve any conflict blocks as in step 2, grep for
+   conflict markers, and stage the path. To keep Git's result instead, restore it from the index
+   with `git cat-file --filters :<path> > <path>`. Record each such path as a judgment call.
 4. **Extend own renames and removals to the target's new code.** If the stacked branch's own
    changes include a rename, a library or API migration, or another mechanical replacement
    applied across the codebase (e.g. `import httpx` → `import httpx2`, a renamed function or
@@ -180,9 +181,9 @@ If the error indicates an authentication failure, also ask the user to authentic
    auto-merge). Acceptable mismatches are those caused by `MERGE_HEAD` having changed the
    surrounding code, or by an *expected* hunk that `MERGE_HEAD` already contains (e.g. the
    stacked branch had earlier merged the target), by a regenerated lockfile (or one left at
-   `MERGE_HEAD`'s version because regeneration failed), or by a step 4
-   extension — record them; anything else is a resolution mistake — fix it, re-stage, and
-   re-check from step 5.
+   `MERGE_HEAD`'s version because regeneration failed), by a step 4 extension, or by a dropped
+   target change recorded in step 2 — record them; anything else is a resolution mistake — fix
+   it, re-stage, and re-check from step 5.
 7. **Run the project's checks.** Look for the project's own lint, typecheck, and test commands
    (e.g. in `CLAUDE.md`, `README`, `Makefile`, `package.json`, `pyproject.toml` task runners)
    and run them, including the full test suite. Use check-only modes (no `--fix`, `--write`,
@@ -202,7 +203,8 @@ Report to the user:
 - PR `$old_pr`, `OLD_TIP` and `BASE` (short SHAs), whether the fetch was needed, and the
   stacked branch's own commits.
 - One line per conflicted path: the conflict kind and how it was resolved (took target's
-  version / took ours (target unchanged) / re-applied own hunks / regenerated / deleted / ...).
+  version / took ours (target unchanged) / merged on `BASE` (clean, or with N conflict blocks
+  resolved by hand) / regenerated / deleted / ...).
 - Every **judgment call**, with what each side had and what was chosen and why.
 - Any lockfile whose regeneration failed: the error, and that it holds `MERGE_HEAD`'s version
   until the user runs the lock command (give it).

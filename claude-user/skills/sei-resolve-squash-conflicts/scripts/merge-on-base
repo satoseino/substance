@@ -18,8 +18,8 @@ checkout filters applied. Overlapping changes are left as diff3-style conflict b
 labeled MERGE_HEAD, BASE and HEAD. Stages nothing.
 
 <path> is relative to the repository's top level, as `git diff --name-only` prints it.
-It must be a text file in both HEAD and MERGE_HEAD; if <base> lacks it, an empty
-ancestor is used.
+It must be a regular text file (not a symlink or submodule) in both HEAD and
+MERGE_HEAD; if <base> lacks it, an empty ancestor is used.
 
 Except with `-h`, prints one of the following to stdout for consumption by an LLM:
 
@@ -50,6 +50,9 @@ EOF
 
   local base=$1 path=$2
 
+  # <path> is fed to `git ls-tree` as a pathspec; match it literally.
+  export GIT_LITERAL_PATHSPECS=1
+
   local toplevel
   if ! toplevel=$(git rev-parse --show-toplevel 2>&1) || ! cd "$toplevel"; then
     echo "ERROR: cannot enter the repository's top level: $toplevel"
@@ -69,10 +72,18 @@ EOF
     return 0
   fi
 
-  local rev
+  # A symlink is a blob too, but writing the merged result through it would overwrite
+  # its target, so only regular files (mode 100644 or 100755) are accepted.
+  local rev mode
   for rev in HEAD MERGE_HEAD; do
-    if [[ "$(git cat-file -t "$rev:$path" 2>/dev/null)" != blob ]]; then
-      echo "ERROR: '$path' is not a file in $rev; resolve it as a modify/delete case"
+    mode=$(git ls-tree --format='%(objectmode)' "$rev" -- "$path" 2>/dev/null || true)
+    if [[ -z $mode ]]; then
+      echo "ERROR: '$path' is absent from $rev; resolve it as a modify/delete case"
+
+      return 0
+    fi
+    if [[ $mode != 100644 && $mode != 100755 ]]; then
+      echo "ERROR: '$path' is not a regular file in $rev (mode $mode); resolve it by hand"
 
       return 0
     fi
