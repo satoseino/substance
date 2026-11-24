@@ -98,9 +98,9 @@ If the error indicates an authentication failure, also ask the user to authentic
    - Otherwise, run `${CLAUDE_SKILL_DIR}/scripts/merge-on-base "$BASE" <path>`. It redoes the
      three-way merge with `BASE` as the ancestor, so it merges only the stacked branch's own
      changes and the target's changes since `BASE`, and writes the result over the path. It
-     prints `MERGE: CLEAN`, `MERGE: CONFLICTS <n>` (diff3 blocks labeled `MERGE_HEAD`, `BASE`
-     and `HEAD` remain where both sides changed the same lines), or `ERROR: …` (e.g. a binary
-     file). On an error, start from `MERGE_HEAD`'s version and re-apply the stacked branch's
+     prints `MERGE: CLEAN`, `MERGE: CONFLICTS <n>` (diff3 blocks remain where both sides
+     changed the same lines, in Git's order: `<<<<<<< HEAD`, `||||||| BASE`, `=======`,
+     `>>>>>>> MERGE_HEAD`), or `ERROR: …` (e.g. a binary file). On an error, start from `MERGE_HEAD`'s version and re-apply the stacked branch's
      own hunks by hand. Do not use `git apply --3way`: it rejects paths with unmerged index
      entries.
    - If a stacked-branch hunk touches code that `MERGE_HEAD` changed in a different way (each

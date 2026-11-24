@@ -13,9 +13,12 @@ original old-base commits, so Git merges them against the squash commit as compe
 edits. With <base> as the ancestor, only the stacked branch's own changes
 (<base> → HEAD) and the target's changes since <base> (<base> → MERGE_HEAD) are merged.
 
-Writes the result over <path> in the working tree. All three inputs are read with
-checkout filters applied. Overlapping changes are left as diff3-style conflict blocks
-labeled MERGE_HEAD, BASE and HEAD. Stages nothing.
+Writes the result over <path> in the working tree, with checkout filters applied to it.
+Like Git, it merges the three versions in their repository form, except for a path with
+a `filter` attribute (e.g. Git LFS), whose versions are merged with filters applied.
+Overlapping changes are left as diff3-style conflict blocks in Git's order: HEAD's
+lines first, then BASE's, then MERGE_HEAD's, labeled with those names. Stages nothing.
+Requires Git 2.43 or later.
 
 <path> is relative to the repository's top level, as `git diff --name-only` prints it.
 It must be a regular text file (not a symlink or submodule) in both HEAD and
@@ -96,26 +99,50 @@ EOF
   fi
   trap 'rm -rf "$tmp_dir"' EXIT
 
-  if ! git cat-file --filters "MERGE_HEAD:$path" >"$tmp_dir/merge_head" 2>"$tmp_dir/stderr" ||
-    ! git cat-file --filters "HEAD:$path" >"$tmp_dir/head" 2>"$tmp_dir/stderr"; then
+  # The ancestor is <base>'s blob, or the empty blob when <base> lacks the path.
+  local base_spec="$base:$path"
+  if [[ "$(git cat-file -t "$base_spec" 2>/dev/null)" != blob ]] &&
+    ! base_spec=$(git hash-object -w --stdin </dev/null 2>"$tmp_dir/stderr"); then
     echo "ERROR: $(<"$tmp_dir/stderr")"
 
     return 0
   fi
 
-  : >"$tmp_dir/base"
-  if [[ "$(git cat-file -t "$base:$path" 2>/dev/null)" == blob ]] &&
-    ! git cat-file --filters "$base:$path" >"$tmp_dir/base" 2>"$tmp_dir/stderr"; then
-    echo "ERROR: $(<"$tmp_dir/stderr")"
-
-    return 0
-  fi
+  # Like Git's own merge, merge the blobs in their repository (clean) form and apply checkout
+  # filters only to the result: smudging the three inputs first would make e.g. an `ident`
+  # line differ in all of them and always conflict. A `filter` driver (e.g. Git LFS) is the
+  # exception: its clean form is a stand-in such as an LFS pointer, whose merge is
+  # meaningless, so with one set the inputs are smudged and merged as files instead.
+  local filter_attr
+  filter_attr=$(git check-attr -z filter -- "$path" 2>/dev/null | tr '\0' '\n' | sed -n 3p || true)
 
   # Exit status: 0 when clean, the number of conflicts (capped at 127) otherwise, and
-  # above 127 on errors such as binary input.
-  local rc=0
-  git merge-file -p --diff3 -L MERGE_HEAD -L BASE -L HEAD \
-    "$tmp_dir/merge_head" "$tmp_dir/base" "$tmp_dir/head" >"$tmp_dir/out" 2>"$tmp_dir/stderr" || rc=$?
+  # above 127 on errors such as binary input. HEAD is the current side, as in Git's own
+  # conflict markers: its lines come first in each conflict block.
+  local rc=0 merged
+  if [[ -z $filter_attr || $filter_attr == unspecified || $filter_attr == unset ]]; then
+    merged=$(git merge-file --object-id --diff3 -L HEAD -L BASE -L MERGE_HEAD \
+      "HEAD:$path" "$base_spec" "MERGE_HEAD:$path" 2>"$tmp_dir/stderr") || rc=$?
+    if ((rc <= 127)) &&
+      ! git cat-file --filters --path="$path" "$merged" >"$tmp_dir/out" 2>"$tmp_dir/stderr"; then
+      echo "ERROR: $(<"$tmp_dir/stderr")"
+
+      return 0
+    fi
+  else
+    local rev spec
+    for rev in HEAD base MERGE_HEAD; do
+      spec="$rev:$path"
+      [[ $rev == base ]] && spec=$base_spec
+      if ! git cat-file --filters --path="$path" "$spec" >"$tmp_dir/$rev" 2>"$tmp_dir/stderr"; then
+        echo "ERROR: $(<"$tmp_dir/stderr")"
+
+        return 0
+      fi
+    done
+    git merge-file -p --diff3 -L HEAD -L BASE -L MERGE_HEAD \
+      "$tmp_dir/HEAD" "$tmp_dir/base" "$tmp_dir/MERGE_HEAD" >"$tmp_dir/out" 2>"$tmp_dir/stderr" || rc=$?
+  fi
   if ((rc > 127)); then
     echo "ERROR: git merge-file failed for '$path': $(<"$tmp_dir/stderr")"
 
