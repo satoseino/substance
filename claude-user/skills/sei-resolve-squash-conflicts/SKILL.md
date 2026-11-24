@@ -128,15 +128,16 @@ If the error indicates an authentication failure, also ask the user to authentic
      must contain no conflict markers. Then `git add <path>`.
 3. **Re-merge auto-merged paths.** Git merged the paths that did not conflict against the same
    wrong ancestor, so a clean auto-merge can still be wrong: e.g. it duplicates a block the
-   stacked branch moved, or resurrects old-base code that a review fix removed. Run
-   `merge-on-base` on every path in `git diff --name-only "$BASE" HEAD` that was not in step 1's
-   conflicted list, except generated lockfiles: if the target also changed one (it is in
-   `TARGET_CHANGES`), handle it as in step 2 instead. An `ERROR:` (the path is missing from
-   `HEAD` or `MERGE_HEAD`, is not a regular file, or is binary) leaves the file untouched; step 6
-   checks those paths. Then `git diff --name-only` lists the paths where the result differs from
-   Git's auto-merge. For each one, read `git diff -- <path>`, keep the `merge-on-base` result
-   unless that diff shows Git's was right, resolve any conflict blocks as in step 2, grep for
-   conflict markers, and stage the path. To keep Git's result instead, restore it from the index
+   stacked branch moved, or resurrects old-base code that a review fix removed — also in paths
+   the stacked branch never changed. Run `merge-on-base` on every path that is in
+   `git diff --name-only "$BASE" HEAD` or in `TARGET_CHANGES` and was not in step 1's conflicted
+   list (for a path only one side changed since `BASE`, the result is that side's version),
+   except a generated lockfile that both sides changed: handle it as in step 2 instead. An
+   `ERROR:` (the path is missing from `HEAD` or `MERGE_HEAD`, is not a regular file, or is
+   binary) leaves the file untouched; step 6 checks those paths. Then `git diff --name-only`
+   lists the paths where the result differs from Git's auto-merge. For each one, read
+   `git diff -- <path>`, keep the `merge-on-base` result unless that diff shows Git's was right,
+   resolve any conflict blocks as in step 2, grep for conflict markers, and stage the path. To keep Git's result instead, restore it from the index
    with `git cat-file --filters :<path> > <path>`. Record each such path as a judgment call.
 4. **Extend own renames and removals to the target's new code.** If the stacked branch's own
    changes include a rename, a library or API migration, or another mechanical replacement
@@ -172,7 +173,9 @@ If the error indicates an authentication failure, also ask the user to authentic
      merged the target). Accept it.
    - `=HEAD`: the staged file is `HEAD`'s, so every target change to it since `BASE` was
      dropped. Accept it only when each dropped change is a judgment call from step 2 or 4;
-     `git diff "$BASE" MERGE_HEAD -- <path>` lists them.
+     `git diff "$BASE" MERGE_HEAD -- <path>` lists them. For an `only-actual` path (the stacked
+     branch did not change it), this is old-base content the target changed or removed since
+     `BASE`: take `MERGE_HEAD`'s version.
    - `=MERGE_HEAD`: every own change to the path was dropped. Accept it only when `MERGE_HEAD`
      already contains them; otherwise it is a resolution mistake.
    - `mixed`: compare `git diff "$BASE" HEAD -- <path>` with
