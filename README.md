@@ -12,4 +12,6 @@
   ~/.config/substance/set-up.sh
   ```
 
+- To run the skill script tests, also run `git submodule update --init --recursive` (see [CLAUDE.md](./CLAUDE.md#testing-skill-scripts)).
+
 - Open up `nvim` and run `:MasonInstallAll`, `:TSInstallAll`, `:checkhealth`.

@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+#
+# Stand-in for `gh` in tests. Responses are registered per key in
+# $FAKE_GH_DIR as <key>.stdout, <key>.exit and <key>.stderr.
+
+set -eu -o pipefail
+
+main() {
+  local line key jq_expr="" has_jq=0 code
+  local -a args=("$@")
+
+  printf -v line '%q ' "$@"
+  echo "${line% }" >>"$FAKE_GH_DIR/calls.log"
+
+  if (($# >= 2)) && [[ $1 == auth && $2 == status ]]; then
+    key=auth
+  elif (($# >= 2)) && [[ $1 == pr && $2 == view ]]; then
+    key=pr-view
+  elif (($# >= 2)) && [[ $1 == api ]]; then
+    key="api_${2//\//_}"
+  else
+    key=""
+  fi
+
+  if [[ -z $key || ! -e $FAKE_GH_DIR/$key.stdout ]]; then
+    echo "fake-gh: no response registered for: ${line% }" >&2
+    exit 1
+  fi
+
+  local i
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    if [[ ${args[i]} == --jq ]] && ((i + 1 < ${#args[@]})); then
+      has_jq=1
+      jq_expr=${args[i + 1]}
+    fi
+  done
+
+  if [[ -s $FAKE_GH_DIR/$key.stderr ]]; then
+    cat "$FAKE_GH_DIR/$key.stderr" >&2
+  fi
+
+  if ((has_jq)); then
+    local result
+    # -c: real gh prints object/array results compact on a non-TTY stdout.
+    result="$(jq -rc "$jq_expr" <"$FAKE_GH_DIR/$key.stdout")"
+    if [[ $result == null ]]; then
+      echo
+    else
+      printf '%s\n' "$result"
+    fi
+  else
+    cat "$FAKE_GH_DIR/$key.stdout"
+  fi
+
+  code=0
+  if [[ -e $FAKE_GH_DIR/$key.exit ]]; then
+    code="$(<"$FAKE_GH_DIR/$key.exit")"
+  fi
+  exit "${code:-0}"
+}
+
+main "$@"
