@@ -167,6 +167,9 @@ If the error indicates an authentication failure, also ask the user to authentic
    so a hunk that landed in the wrong place is reported as `differs`, and so is a hunk next to a
    line `MERGE_HEAD` changed. A `binary-differs` path is a binary file whose staged blob is not
    `HEAD`'s, i.e. the stacked branch's version of it was not kept. `<staged>` triages the rest:
+   - `=both`: `HEAD` and `MERGE_HEAD` have the same version and it is staged, so nothing was
+     dropped: `MERGE_HEAD` already contains the own changes (e.g. the stacked branch had earlier
+     merged the target). Accept it.
    - `=HEAD`: the staged file is `HEAD`'s, so every target change to it since `BASE` was
      dropped. Accept it only when each dropped change is a judgment call from step 2 or 4;
      `git diff "$BASE" MERGE_HEAD -- <path>` lists them.

@@ -38,9 +38,10 @@ where <kind> is one of:
     binary-differs  both sides change the binary path, and its staged blob differs from HEAD's
 
 and <staged> says which version of the path is staged:
+    =both           identical to HEAD's and MERGE_HEAD's, which are the same: nothing was dropped
     =HEAD           identical to HEAD's: the target's changes to it since <base> were all dropped
     =MERGE_HEAD     identical to MERGE_HEAD's: the stacked branch's own changes to it were all dropped
-    mixed           neither
+    mixed           none of the above
 
 A path absent from both the index and a commit counts as identical to it.
 
@@ -74,13 +75,17 @@ blob_of() {
   git rev-parse -q --verify "$1:$2" 2>/dev/null || true
 }
 
-# Prints which version of the path is staged: `=HEAD`, `=MERGE_HEAD`, or `mixed`.
+# Prints which version of the path is staged: `=both`, `=HEAD`, `=MERGE_HEAD`, or `mixed`.
 staged_version() {
-  local staged
+  local staged head merge_head
   staged=$(blob_of "" "$1")
-  if [[ $staged == "$(blob_of HEAD "$1")" ]]; then
+  head=$(blob_of HEAD "$1")
+  merge_head=$(blob_of MERGE_HEAD "$1")
+  if [[ $staged == "$head" && $staged == "$merge_head" ]]; then
+    echo "=both"
+  elif [[ $staged == "$head" ]]; then
     echo "=HEAD"
-  elif [[ $staged == "$(blob_of MERGE_HEAD "$1")" ]]; then
+  elif [[ $staged == "$merge_head" ]]; then
     echo "=MERGE_HEAD"
   else
     echo "mixed"
