@@ -183,3 +183,8 @@ Conventions:
   never invoke the real `gh` or touch the network.
 
 New or changed skill scripts must come with tests in `test/`.
+
+Agents may run the suite without asking — it is local-only (`gh` is stubbed, no network) — and should do so after
+changing any skill script or test, reporting failures verbatim. To iterate on one file, pass it directly:
+`BATS_FILE_EXTENSION=sh ./test/bats/bin/bats test/<file>.sh`. If `test/bats/` is empty, run
+`git submodule update --init --recursive` first.
