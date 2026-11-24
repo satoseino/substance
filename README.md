@@ -4,6 +4,13 @@ A personal setup for AI-assisted work: shell config, Neovim, CLI scripts, and Cl
 plus bootstrap guides for macOS and Fedora on WSL2.
 It is tailored to specific machines and a single user's workflow, so expect to adapt it rather than use it as-is.
 
+## Claude Code skills
+
+[`claude-user/skills/`](./claude-user/skills) holds nine Claude Code skills that cover PR-based development from end to end:
+writing and reviewing specs, implementing them, writing PR messages, reviewing PRs across follow-up rounds, and resolving
+conflicts in stacked branches after a squash merge.
+Most skill folders also work outside this repo. See [claude-user/README.md](./claude-user/README.md) for the workflow and how to install them.
+
 ## Getting started
 
 - Install dependencies according to [BOOTSTRAP.md](./BOOTSTRAP.md) or [BOOTSTRAP-WSL.md](./BOOTSTRAP-WSL.md).
