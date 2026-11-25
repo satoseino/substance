@@ -46,6 +46,11 @@ remove it and rotate it instead. `gelato pre-commit --help` covers the options.
 
 All shell code targets **Bash 5.1+**. Features unavailable in older Bash (e.g. `mapfile`, `compgen -V`, extended globs, `@(...)` patterns) are fair game.
 
+The exception is `claude-plugin/skills/*/scripts/`. These ship to other users and must run on Bash 3.2 (stock macOS
+`/bin/bash`), so they avoid `mapfile`/`readarray`, associative arrays, namerefs (`local -n`), `${var,,}`/`${var^^}`,
+negative array indices, and empty-array expansion under `set -u`. Verify on macOS with
+`SEI_TEST_SCRIPT_BASH=/bin/bash BATS_FILE_EXTENSION=sh ./test/bats/bin/bats test/`.
+
 ## Shell init architecture
 
 `dotfiles/.bashrc` is the entry point. It sets `$SEI_SUBSTANCE_DIR` first, then sources `lib/it-shell.sh` and immediately calls `sei::bash_init` (which sets up PATH, fnm, completion, and man pager). A `trap … RETURN` is armed to fire `sei::bash_post_init` once `dotfiles/.bashrc` finishes returning; that function resolves the current environment prefix (via `hostname`) and sources the matching `profile/<prefix>.bashrc`. After the trap, `dotfiles/.bashrc` sources the remaining interactive lib files: `lib/aliases.sh`, `lib/commands.sh`, `lib/cplan.sh`, and `lib/acmd.sh`.
@@ -198,6 +203,9 @@ Conventions:
   simulate `gh` not being installed. It leaves only the tools in `NO_GH_TOOLS` (in `test/test_helper/common.bash`) plus
   any `TOOL`s on `PATH`. When a skill script starts using a new external command, add it to `NO_GH_TOOLS`. Tests must
   never invoke the real `gh` or touch the network.
+- Set `SEI_TEST_SCRIPT_BASH` to a bash binary (e.g. `/bin/bash`) to run the scripts under test on it; `common_setup`
+  puts a `bash` symlink to it first on `PATH`, while bats and the helpers stay on the suite's Bash. `test/set_up.sh`
+  unsets it, since `set-up.sh` targets Bash 5.1. The `bats-test-bash32` CI job runs the suite this way on macOS.
 - `set-up.sh` is tested in `test/set_up.sh`, an exception to the `<skill-prefix>_<script>.sh` naming and the
   `$SKILLS_DIR` rule; it builds paths from `$SUBSTANCE_DIR` instead. Its tests point `HOME` at the per-test dir, pin
   the prefix with `SEI_WORK_MODE`, and must keep `pre-commit` off `PATH` via `use_path_without_gh`, so they never touch
