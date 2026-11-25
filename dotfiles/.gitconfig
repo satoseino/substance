@@ -9,7 +9,7 @@
 	prune = true
 	pruneTags = true
 [submodule]
-	recurse = true
+	recurse = false
 [push]
 	recurseSubmodules = check
 [alias]
