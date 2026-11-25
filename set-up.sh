@@ -107,39 +107,7 @@ _ensure_symlink() {
   ln -s "$target_path" "$link_path"
 }
 
-# Ensure none of the given paths is a leftover symlink from an old scheme,
-# removing it if present. A real directory is the happy default (the current
-# scheme's steady state) and is left untouched. Non-existent paths are
-# skipped without error. Logs an error and returns early with non-zero exit
-# code if any path exists as something other than a directory or a symlink
-# (e.g. a regular file).
-# Args:
-#   $@: paths to check
-# Returns: None
-_ensure_no_symlink() {
-  local path
-
-  for path in "$@"; do
-    if [[ -L "$path" ]]; then
-      sei::log_info "Removing symlink $path"
-
-      unlink "$path"
-    elif [[ -d "$path" ]]; then
-      continue
-    elif [[ -e "$path" ]]; then
-      sei::log_error "$path already exists and is not a directory or symlink"
-
-      return 1
-    fi
-  done
-}
-
 main() {
-  # Tear down the old whole-folder Claude skills symlink, if present. A real
-  # directory here is the current scheme's steady state (see mkdir -p below)
-  # and is left alone.
-  _ensure_no_symlink "$HOME/.claude/skills"
-
   # Make necessary directories first.
   mkdir -p "$HOME/.config/ghostty"
   mkdir -p "$HOME/.config/bat"

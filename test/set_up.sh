@@ -298,32 +298,3 @@ stale_dotfile_link_removed() { #@test
   assert_success
   assert [ ! -L "$HOME/.gone" ]
 }
-
-old_skills_symlink_torn_down() { #@test
-  local old="$BATS_TEST_TMPDIR/old-skills"
-  mkdir -p "$old" "$HOME/.claude"
-  printf 'keep\n' >"$old/marker"
-  ln -s "$old" "$HOME/.claude/skills"
-
-  run --separate-stderr "$SCRIPT"
-
-  assert_success
-  assert [ -d "$HOME/.claude/skills" ]
-  assert [ ! -L "$HOME/.claude/skills" ]
-  assert_links_to "$HOME/.claude/skills/sei" "$SUBSTANCE_DIR/claude-plugin"
-
-  assert_equal "$(ls -A "$old")" marker
-  assert_equal "$(<"$old/marker")" keep
-}
-
-skills_path_is_a_file() { #@test
-  mkdir -p "$HOME/.claude"
-  printf 'not a dir\n' >"$HOME/.claude/skills"
-
-  run --separate-stderr "$SCRIPT"
-
-  assert_failure
-  [[ $stderr == *"$HOME/.claude/skills already exists and is not a directory or symlink"* ]] ||
-    fail "unexpected stderr: $stderr"
-  assert [ -f "$HOME/.claude/skills" ]
-}
