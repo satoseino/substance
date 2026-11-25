@@ -179,21 +179,7 @@ main() {
 
   local name
 
-  # Symlinking Claude related files and folders
-  local -a skills
-  mapfile -t skills < <(find "$HOME/.claude/skills" -maxdepth 1 -mindepth 1 -type l)
-
-  # Clean up stale symlinks in ~/.claude/skills created by this script. This
-  # also removes the pre-plugin per-skill links (~/.claude/skills/sei-*), whose
-  # targets under claude-user/skills/ no longer exist.
-  for name in "${skills[@]}"; do
-    if [[ ! -e "$name" ]] && _points_into "$name" "$substance_dir"; then
-      sei::log_info "Skill symlink $name should no longer exist. Removing"
-
-      unlink "$name"
-    fi
-  done
-
+  # Symlinking Claude related files and folders.
   # One symlink to the `sei` plugin root; Claude Code loads it as
   # sei@skills-dir, so new skills appear without re-running this script.
   _ensure_symlink "$HOME/.claude/skills/sei" "$substance_dir/claude-plugin"

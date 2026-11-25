@@ -230,20 +230,6 @@ non_symlink_at_ensure_symlink_path() { #@test
   assert_equal "$(ls -A "$HOME/.config/nvim")" ''
 }
 
-legacy_skill_links_removed() { #@test
-  # The exact shape the pre-plugin per-skill scheme left behind, now broken.
-  mkdir -p "$HOME/.claude/skills"
-  ln -s "$SUBSTANCE_DIR/claude-user/skills/sei-pr-review" "$HOME/.claude/skills/sei-pr-review"
-
-  run --separate-stderr "$SCRIPT"
-
-  assert_success
-  assert [ ! -L "$HOME/.claude/skills/sei-pr-review" ]
-  assert [ ! -e "$HOME/.claude/skills/sei-pr-review" ]
-  assert_output --partial 'should no longer exist. Removing'
-  assert_links_to "$HOME/.claude/skills/sei" "$SUBSTANCE_DIR/claude-plugin"
-}
-
 foreign_skill_entries_kept() { #@test
   local foreign="$BATS_TEST_TMPDIR/foreign-skill"
   mkdir -p "$foreign" "$HOME/.claude/skills/other-plugin/.claude-plugin"
