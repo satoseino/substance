@@ -163,15 +163,16 @@ Steps to add a new script:
 
 - `claude-user/CLAUDE-USER.md` → `~/.claude/CLAUDE.md`
 - `claude-user/settings.json` → `~/.claude/settings.json`
-- `claude-user/skills/<skill-name>/` → `~/.claude/skills/<skill-name>/`
 
 It is deliberately not named `.claude/`, so Claude Code does not also load these files as project-scoped config when working in this repo. For the same reason the global instructions file is not named `CLAUDE.md`, which Claude Code would auto-load from subfolders.
 
-Skills live in `claude-user/skills/<skill-name>/SKILL.md`. All skill names use the `sei-` prefix. Each `SKILL.md` begins with YAML front matter (`name`, `description`, `allowed-tools`, etc.) followed by the instruction body.
+`claude-plugin/` is the `sei` Claude Code plugin (`.claude-plugin/plugin.json` + `skills/<skill-name>/SKILL.md`), and `set-up.sh` symlinks `~/.claude/skills/sei` → `claude-plugin/`. Claude Code loads it as `sei@skills-dir`, and skills are invoked as `/sei:<skill-name>`. It is kept apart from `claude-user/` so that `settings.json` never sits at a plugin root.
+
+Skills live in `claude-plugin/skills/<skill-name>/SKILL.md`. Skill folder names and frontmatter `name` carry no prefix; the plugin supplies `sei:`. One skill refers to another by its qualified `sei:<skill-name>`. Each `SKILL.md` begins with YAML front matter (`name`, `description`, `allowed-tools`, etc.) followed by the instruction body.
 
 ## Testing
 
-Scripts under `claude-user/skills/*/scripts/` and `set-up.sh` (in `test/set_up.sh`) are tested with [bats-core](https://github.com/bats-core/bats-core),
+Scripts under `claude-plugin/skills/*/scripts/` and `set-up.sh` (in `test/set_up.sh`) are tested with [bats-core](https://github.com/bats-core/bats-core),
 vendored as git submodules under `test/`. Initialize them once per clone:
 
 ```bash
@@ -192,7 +193,7 @@ Conventions:
 - Mark each test with the inline marker: `name() { #@test`.
 - Every test file runs `load "test_helper/common"`, and its `setup()` calls `common_setup` first (points `TMPDIR` at the
   per-test temp dir).
-- Build script paths from `$SKILLS_DIR` (set by `test/setup_suite.bash`), e.g. `"$SKILLS_DIR/sei-pr-review/scripts/verify-sha"`.
+- Build script paths from `$SKILLS_DIR` (set by `test/setup_suite.bash`), e.g. `"$SKILLS_DIR/pr-review/scripts/verify-sha"`.
 - Stub `gh` with `use_fake_gh` and `fake_gh_respond KEY STDOUT [EXIT [STDERR]]`; use `use_path_without_gh [TOOL...]` to
   simulate `gh` not being installed. It leaves only the tools in `NO_GH_TOOLS` (in `test/test_helper/common.bash`) plus
   any `TOOL`s on `PATH`. When a skill script starts using a new external command, add it to `NO_GH_TOOLS`. Tests must

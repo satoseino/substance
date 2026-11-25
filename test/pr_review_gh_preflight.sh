@@ -8,7 +8,7 @@ NOT_LOGGED_IN='ERROR: not logged into GitHub via gh. Run: gh auth login'
 
 setup() {
   common_setup
-  LIB="$SKILLS_DIR/sei-pr-review/scripts/lib/gh-preflight.sh"
+  LIB="$SKILLS_DIR/pr-review/scripts/lib/gh-preflight.sh"
 }
 
 run_preflight() {

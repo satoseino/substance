@@ -1,5 +1,5 @@
 ---
-name: sei-specs-review-loop
+name: specs-review-loop
 description: "Review one or more existing Markdown spec files in rounds — for internal consistency, consistency against each other (when more than one is given), against the current code, and against decisions established in this session — fixing findings that have a clear fix, until a round turns up only minor problems, a finding needs the user's design decision, or the round cap is reached."
 disable-model-invocation: true
 argument-hint: "<count> <paths> [focus_prompt]"
@@ -48,7 +48,7 @@ Stop and report to the user, without editing anything, if any of the following h
 
 Review each spec against:
 
-1. **Itself** — internal consistency: sections agree with each other (e.g. for a spec in the `sei-write-specs` format, Background vs. Changes vs. Acceptance Criteria vs. Files to Change), no contradictions, no dangling references.
+1. **Itself** — internal consistency: sections agree with each other (e.g. for a spec in the `sei:write-specs` format, Background vs. Changes vs. Acceptance Criteria vs. Files to Change), no contradictions, no dangling references.
 2. **The other specs** — when more than one spec is given: shared interfaces, names, ordering, and ownership of changes agree across specs; no change is claimed by two specs or by none.
 3. **The current code** — every file path, line reference, symbol, signature, and described current behavior matches what is actually on disk. Verify by reading the code; a code-mismatch finding must cite the `file:line` you read.
 4. **This session's established context** — decisions, research results, and constraints from the conversation that led to this invocation, including any discussion since a previous run of this skill, plus `focus_prompt`. A spec contradicting a decision is a finding. It is a clear fix only when the decision is unambiguous in context; context after `/compact` is lossy, so a vague recollection makes it a deferred finding, not an edit.

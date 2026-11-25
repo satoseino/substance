@@ -8,8 +8,8 @@ load "test_helper/common"
 setup() {
   common_setup
   use_fake_gh
-  SCRIPT="$SKILLS_DIR/sei-fetch-single-comment/scripts/fetch-single-comment"
-  FIXTURES="$BATS_TEST_DIRNAME/fixtures/sei-fetch-single-comment"
+  SCRIPT="$SKILLS_DIR/fetch-single-comment/scripts/fetch-single-comment"
+  FIXTURES="$BATS_TEST_DIRNAME/fixtures/fetch-single-comment"
   ISSUE_KEY=api_repos_o_r_issues_comments_456
   PULLS_KEY=api_repos_o_r_pulls_comments_789
   ISSUE_URL='https://github.com/o/r/pull/7#issuecomment-456'

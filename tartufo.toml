@@ -31,4 +31,9 @@ exclude-signatures = [
     {signature = "0aeaaad144d942f185d38ad9f617fb8dc39f211fe51a3964ba1a42b0fc654596", reason = "fixtures path in fetch-single-comment test is not credential"},
     {signature = "5cacf72c1ae70b07bf26b09d530382d7471e1fb2a6b859e5ee9f70312816c6b3", reason = "file path in set-up.sh test is not credential"},
     {signature = "a0aa7a959e2ccb36110550b86fa15880c30af885ea1ca843388918b547f99603", reason = "file path in set-up.sh test is not credential"},
+    {signature = "de2f210c39683011aaec937b02aaf2562670e6659a78973da2c49827a0d91f7b", reason = "fixtures path in fetch-single-comment test is not credential"},
+    {signature = "6a0ceea78db6d42dcf93b6660bd1d78d95a80a74b8ec79c4fccba4f3945a1c07", reason = "script path in merge-on-base test is not credential"},
+    {signature = "e3d4852b1b5f020fe941666a24614971e17c4d58d2d0bf52efc300f019a8a7a6", reason = "script path in preflight test is not credential"},
+    {signature = "976a10a11b2ab3d9c08bdb275f71589901f5328801ee88de1fcb3bbfc7806c5e", reason = "script path in verify-own-changes test is not credential"},
+    {signature = "03b84f467c616770e5f126acb6d46757786e59707628cb1347414c8ba6fd4896", reason = "plugin link path in set-up.sh test is not credential"},
 ]

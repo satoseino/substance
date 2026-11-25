@@ -7,7 +7,7 @@ load "test_helper/git_repo"
 setup() {
   common_setup
   squash_scenario
-  SCRIPT="$SKILLS_DIR/sei-resolve-squash-conflicts/scripts/preflight"
+  SCRIPT="$SKILLS_DIR/resolve-squash-conflicts/scripts/preflight"
 }
 
 # expected_pass FETCHED

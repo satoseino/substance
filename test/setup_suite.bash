@@ -16,6 +16,6 @@ setup_suite() {
 
   local test_dir
   test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  export SKILLS_DIR="$test_dir/../claude-user/skills"
+  export SKILLS_DIR="$test_dir/../claude-plugin/skills"
   SKILLS_DIR="$(cd "$SKILLS_DIR" && pwd)"
 }
