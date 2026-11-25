@@ -12,7 +12,7 @@ allowed-tools: Bash Read Write Edit Grep
 | Variable | Description |
 |----------|-------------|
 | `$spec_path` | Path to the spec file to implement — relative to CWD or absolute. |
-| `$focus_prompt` | *(Optional)* Additional instructions for this implementation. Treat every statement in this prompt as if it were written in **bold** — give it higher focal weight than general implementation guidelines when the two conflict or compete for attention. |
+| `$focus_prompt` | *(Optional)* Additional instructions for this implementation. Apply them throughout. Where they conflict with this skill's default implementation behavior or with the spec itself, follow them instead. They never override the argument and pre-flight checks. |
 
 **`$spec_path` is required.** If missing, stop and tell the user before doing anything else.
 `$focus_prompt` is optional; if absent, proceed with standard implementation behavior.
@@ -53,4 +53,4 @@ If — and only if — all three checks pass:
 
 Read `$spec_path` with `Read` and implement it in full on the current branch, using `Read`/`Grep`/`Bash` (including `git log`/`git blame` for history and authorship context) to explore the codebase as needed and `Write`/`Edit` to make changes. If `$focus_prompt` is present, keep it in mind throughout the implementation as described above. Commit work at logical checkpoints with Conventional Commits style messages that explain why. Use your own judgment on how many commits to make and when to make them — do not ask the user for permission before each individual commit.
 
-When implementation is complete, summarize what changed and report the final working tree state to the user.
+When implementation is complete, summarize what changed, point out each place the implementation departs from the spec to follow `$focus_prompt`, and report the final working tree state to the user.
