@@ -62,8 +62,18 @@ implemented, and later used as the yardstick in the PR review.
 /plugin install sei@substance
 ```
 
-Skills are then invoked as `/sei:<skill>`, e.g. `/sei:pr-review start ...`. Updates arrive through
-`/plugin marketplace update substance`.
+Skills are then invoked as `/sei:<skill>`, e.g. `/sei:pr-review start ...`.
+
+Auto-update is off by default for third-party marketplaces such as this one, and refreshing the marketplace alone leaves
+the installed plugin where it was. To update, run:
+
+```bash
+claude plugin marketplace update substance
+claude plugin update sei@substance
+```
+
+Then restart Claude Code, or run `/reload-plugins` in a session. To get updates automatically instead, turn on
+auto-update for `substance` in the Marketplaces tab of `/plugin`.
 
 **From a clone, for hacking on the skills.** From the repo root:
 
