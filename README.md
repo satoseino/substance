@@ -6,10 +6,10 @@ It is tailored to specific machines and a single user's workflow, so expect to a
 
 ## Claude Code skills
 
-[`claude-user/skills/`](./claude-user/skills) holds Claude Code skills that cover PR-based development from end to end:
+[`claude-plugin/skills/`](./claude-plugin/skills) holds Claude Code skills that cover PR-based development from end to end:
 writing and reviewing specs, implementing them, writing PR messages, reviewing PRs across follow-up rounds, and resolving
 conflicts in stacked branches after a squash merge.
-Most skill folders also work outside this repo. See [claude-user/README.md](./claude-user/README.md) for the workflow and how to install them.
+Most skill folders also work outside this repo. See [claude-plugin/README.md](./claude-plugin/README.md) for the workflow and how to install them.
 
 ## Getting started
 
