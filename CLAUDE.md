@@ -5,6 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this repo is
 
 Personal platform for AI-assisted workflow.
+
+- Everything except `claude-plugin/` is the author's own (shell config, NeoVim, `bin/`, `lib/`, `profile/`,
+  `claude-user/`) and is not designed for reuse by others.
+- `claude-plugin/` is the public `sei` plugin. It is published through the repo-root `.claude-plugin/marketplace.json`.
+  Changes there must not depend on anything outside `claude-plugin/`: marketplace installs copy only the plugin folder.
+  Its scripts must stay Bash 3.2-compatible (see "Shell version").
+
 `set-up.sh` creates symlinks from `$HOME` (and `~/.config/nvim`) pointing into this repo,
 so edits here take effect immediately for the running shell (after re-sourcing the relevant file).
 
@@ -173,6 +180,8 @@ It is deliberately not named `.claude/`, so Claude Code does not also load these
 
 `claude-plugin/` is the `sei` Claude Code plugin (`.claude-plugin/plugin.json` + `skills/<skill-name>/SKILL.md`), and `set-up.sh` symlinks `~/.claude/skills/sei` → `claude-plugin/`. Claude Code loads it as `sei@skills-dir`, and skills are invoked as `/sei:<skill-name>`. It is kept apart from `claude-user/` so that `settings.json` never sits at a plugin root.
 
+`.claude-plugin/marketplace.json` at the repo root lists the plugin. Its entry `name` must match `claude-plugin/.claude-plugin/plugin.json`'s `name`, and neither file sets `version`.
+
 Skills live in `claude-plugin/skills/<skill-name>/SKILL.md`. Skill folder names and frontmatter `name` carry no prefix; the plugin supplies `sei:`. One skill refers to another by its qualified `sei:<skill-name>`. Each `SKILL.md` begins with YAML front matter (`name`, `description`, `allowed-tools`, etc.) followed by the instruction body.
 
 ## Testing
@@ -210,6 +219,8 @@ Conventions:
   `$SKILLS_DIR` rule; it builds paths from `$SUBSTANCE_DIR` instead. Its tests point `HOME` at the per-test dir, pin
   the prefix with `SEI_WORK_MODE`, and must keep `pre-commit` off `PATH` via `use_path_without_gh`, so they never touch
   the real `$HOME` or `.git/hooks`.
+- `test/plugin_manifest.sh` follows the same exception: it builds paths from `$SUBSTANCE_DIR` and checks the
+  marketplace and plugin manifests with `jq` and that each skill's frontmatter `name` matches its folder.
 
 New or changed skill scripts, and changes to `set-up.sh`, must come with tests in `test/`.
 

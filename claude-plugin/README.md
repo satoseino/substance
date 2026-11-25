@@ -53,25 +53,56 @@ implemented, and later used as the yardstick in the PR review.
 - **State lives in files.** Review reports carry their triage state in front matter, and session manifests list what to
   reload, so a review can resume days later in a new conversation.
 
-## Using them elsewhere
+## Install
 
-[`set-up.sh`](../set-up.sh) links every skill folder into `~/.claude/skills/`. To use them without the rest of this
-repo, copy or symlink the folders you want:
+**Marketplace (recommended).** In Claude Code:
 
-```bash
-ln -s "$PWD/claude-plugin/skills/pr-review" ~/.claude/skills/pr-review
+```text
+/plugin marketplace add satoseino/substance
+/plugin install sei@substance
 ```
 
-Requirements and assumptions:
+Skills are then invoked as `/sei:<skill>`, e.g. `/sei:pr-review start ...`.
 
-- `git`, plus `jq` and the [`gh` CLI](https://cli.github.com/) (>= 2.81.0, authenticated) for `pr-review` and
-  `fetch-single-comment`. `resolve-squash-conflicts` needs only `git` and an `origin` that serves
-  `refs/pull/<n>/head`, as GitHub does.
-- `pr-review` invokes `fetch-single-comment` when a focus prompt points at a comment URL, so install both.
-- `pr-review` looks for a web search tool through a `jarvis-registry` MCP server when it is unsure about a library.
-  Without that server it reviews without web search.
-- The skills are written to sit alongside [`CLAUDE-USER.md`](../claude-user/CLAUDE-USER.md), whose global rule reserves git writes for
-  the user. `implement-spec` lifts that rule for its own session.
+Auto-update is off by default for third-party marketplaces such as this one, and refreshing the marketplace alone leaves
+the installed plugin where it was. To update, run:
+
+```bash
+claude plugin marketplace update substance
+claude plugin update sei@substance
+```
+
+Then restart Claude Code, or run `/reload-plugins` in a session. To get updates automatically instead, turn on
+auto-update for `substance` in the Marketplaces tab of `/plugin`.
+
+**From a clone, for hacking on the skills.** From the repo root:
+
+```bash
+ln -s "$PWD/claude-plugin" ~/.claude/skills/sei
+```
+
+Claude Code loads it in place as `sei@skills-dir`; run `claude plugin list` to confirm. Link the whole plugin folder,
+never single skill folders: cross-skill calls such as `pr-review`'s use of `sei:fetch-single-comment` rely on the `sei:`
+namespace, which a lone skill folder does not get.
+
+- A marketplace-installed `sei` takes precedence over a `sei@skills-dir` copy. Use one or the other on a machine.
+- This repo's [`set-up.sh`](../set-up.sh) is the author's personal installer. It also links dotfiles and needs Bash 5.1,
+  so do not run it to get the skills.
+
+## Requirements
+
+| Skill | External tools | Assumptions |
+|---|---|---|
+| `pr-review` | `git`; `gh` >= 2.81.0 (for `gh auth status --json`), authenticated to github.com; `jq` | PRs on github.com only (`scripts/lib/gh-preflight.sh` reads the `github.com` host); invokes `sei:fetch-single-comment` when a focus prompt names a comment URL; uses any available web search tool, else reviews without one |
+| `fetch-single-comment` | `gh` (authenticated), `jq` | github.com comment URLs |
+| `resolve-squash-conflicts` | `git` (`merge-file`, `ls-remote`, `fetch`) | `origin` serves `refs/pull/<n>/head`, as GitHub does |
+| `implement-spec` | `git` | Refuses only on a branch named `main`; grants itself commits and other state-changing git commands, including `push`, for the rest of the session |
+| `write-specs`, `specs-review-loop`, `pr-message`, `pr-comment`, `session-file` | none | — |
+
+- Bundled scripts run with the first `bash` on `PATH` and are tested on Bash 3.2 (stock macOS `/bin/bash`) and Bash 5.
+  They also use `cat`, `sed`, `tr`, `awk`, `grep`, `sort`, `head`, `mktemp`, `rm`, `dirname` and `readlink -f`.
+  `readlink -f` needs macOS 12.3+ or GNU coreutils.
+- Tested with Claude Code 2.1.332. No minimum version is claimed.
 - Where specs, reports and sessions go is up to you; every path is an argument. This repo keeps them in a
   `.working-docs/` folder that [`wdocs`](../bin/wdocs) scaffolds.
 
