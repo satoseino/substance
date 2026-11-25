@@ -1,17 +1,25 @@
 # Shell & Substance
 
-A personal setup for AI-assisted work: shell config, NeoVim, CLI scripts, and Claude Code skills,
-plus bootstrap guides for macOS and Fedora on WSL2.
-It is tailored to specific machines and a single user's workflow, so expect to adapt it rather than use it as-is.
+The author's personal setup for AI-assisted work: shell config, NeoVim, CLI scripts and libs, plus bootstrap guides
+for macOS and Fedora on WSL2. These are tailored to specific machines and one user's workflow, and are not maintained
+for reuse.
+The one part published for others is the `sei` Claude Code plugin in [`claude-plugin/`](./claude-plugin).
 
 ## Claude Code skills
 
 [`claude-plugin/skills/`](./claude-plugin/skills) holds Claude Code skills that cover PR-based development from end to end:
 writing and reviewing specs, implementing them, writing PR messages, reviewing PRs across follow-up rounds, and resolving
 conflicts in stacked branches after a squash merge.
-Most skill folders also work outside this repo. See [claude-plugin/README.md](./claude-plugin/README.md) for the workflow and how to install them.
+Install them in Claude Code:
 
-## Getting started
+```text
+/plugin marketplace add satoseino/substance
+/plugin install sei@substance
+```
+
+See [`claude-plugin/README.md`](./claude-plugin/README.md) for the workflow, requirements and the clone-based install.
+
+## Getting started (author's machines)
 
 - Install dependencies according to [BOOTSTRAP.md](./BOOTSTRAP.md) or [BOOTSTRAP-WSL.md](./BOOTSTRAP-WSL.md).
 
