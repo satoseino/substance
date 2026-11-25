@@ -40,8 +40,8 @@ contains. The stacked branch's **own changes** — the only thing it should add 
   including deleted paths, since `git add` on a removed path stages the deletion — and re-stage
   it after any later fix. Never run `git merge --continue`, `git commit`, or any other
   state-changing git command; concluding the merge is the user's job.
-- Do not use `git stash` during this skill, despite the global exception: stashing mid-merge
-  removes `MERGE_HEAD` and silently ends the merge.
+- Do not use `git stash` during this skill, even if other instructions allow it: stashing
+  mid-merge removes `MERGE_HEAD` and silently ends the merge.
 - To take one side's version of a file, write it out with `git cat-file --filters :2:<path>`
   (ours) or `git cat-file --filters :3:<path>` (theirs) redirected into the file; for a path
   without conflict stages, use `HEAD:<path>`, `MERGE_HEAD:<path>` or `:<path>` (the index). Do

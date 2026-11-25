@@ -8,7 +8,8 @@ allowed-tools: Bash Read Write Edit Grep Skill
 
 Fetch the GitHub PR comment at `$comment_url` — either a conversation comment (URL fragment
 `#issuecomment-<id>`) or an inline review comment (URL fragment `#discussion_r<id>`) — via the
-bundled `${CLAUDE_SKILL_DIR}/scripts/fetch-single-comment` script (not the `jarvis-registry` MCP).
+bundled `${CLAUDE_SKILL_DIR}/scripts/fetch-single-comment` script (not a GitHub MCP tool or `gh` called directly, even if
+the user's instructions prefer one).
 
 **`$comment_url` is required.** If missing, stop and tell the user before doing anything else.
 
