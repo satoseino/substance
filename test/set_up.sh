@@ -230,20 +230,6 @@ non_symlink_at_ensure_symlink_path() { #@test
   assert_equal "$(ls -A "$HOME/.config/nvim")" ''
 }
 
-legacy_skill_links_removed() { #@test
-  # The exact shape the pre-plugin per-skill scheme left behind, now broken.
-  mkdir -p "$HOME/.claude/skills"
-  ln -s "$SUBSTANCE_DIR/claude-user/skills/sei-pr-review" "$HOME/.claude/skills/sei-pr-review"
-
-  run --separate-stderr "$SCRIPT"
-
-  assert_success
-  assert [ ! -L "$HOME/.claude/skills/sei-pr-review" ]
-  assert [ ! -e "$HOME/.claude/skills/sei-pr-review" ]
-  assert_output --partial 'should no longer exist. Removing'
-  assert_links_to "$HOME/.claude/skills/sei" "$SUBSTANCE_DIR/claude-plugin"
-}
-
 foreign_skill_entries_kept() { #@test
   local foreign="$BATS_TEST_TMPDIR/foreign-skill"
   mkdir -p "$foreign" "$HOME/.claude/skills/other-plugin/.claude-plugin"
@@ -311,33 +297,4 @@ stale_dotfile_link_removed() { #@test
 
   assert_success
   assert [ ! -L "$HOME/.gone" ]
-}
-
-old_skills_symlink_torn_down() { #@test
-  local old="$BATS_TEST_TMPDIR/old-skills"
-  mkdir -p "$old" "$HOME/.claude"
-  printf 'keep\n' >"$old/marker"
-  ln -s "$old" "$HOME/.claude/skills"
-
-  run --separate-stderr "$SCRIPT"
-
-  assert_success
-  assert [ -d "$HOME/.claude/skills" ]
-  assert [ ! -L "$HOME/.claude/skills" ]
-  assert_links_to "$HOME/.claude/skills/sei" "$SUBSTANCE_DIR/claude-plugin"
-
-  assert_equal "$(ls -A "$old")" marker
-  assert_equal "$(<"$old/marker")" keep
-}
-
-skills_path_is_a_file() { #@test
-  mkdir -p "$HOME/.claude"
-  printf 'not a dir\n' >"$HOME/.claude/skills"
-
-  run --separate-stderr "$SCRIPT"
-
-  assert_failure
-  [[ $stderr == *"$HOME/.claude/skills already exists and is not a directory or symlink"* ]] ||
-    fail "unexpected stderr: $stderr"
-  assert [ -f "$HOME/.claude/skills" ]
 }

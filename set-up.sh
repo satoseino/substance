@@ -107,39 +107,7 @@ _ensure_symlink() {
   ln -s "$target_path" "$link_path"
 }
 
-# Ensure none of the given paths is a leftover symlink from an old scheme,
-# removing it if present. A real directory is the happy default (the current
-# scheme's steady state) and is left untouched. Non-existent paths are
-# skipped without error. Logs an error and returns early with non-zero exit
-# code if any path exists as something other than a directory or a symlink
-# (e.g. a regular file).
-# Args:
-#   $@: paths to check
-# Returns: None
-_ensure_no_symlink() {
-  local path
-
-  for path in "$@"; do
-    if [[ -L "$path" ]]; then
-      sei::log_info "Removing symlink $path"
-
-      unlink "$path"
-    elif [[ -d "$path" ]]; then
-      continue
-    elif [[ -e "$path" ]]; then
-      sei::log_error "$path already exists and is not a directory or symlink"
-
-      return 1
-    fi
-  done
-}
-
 main() {
-  # Tear down the old whole-folder Claude skills symlink, if present. A real
-  # directory here is the current scheme's steady state (see mkdir -p below)
-  # and is left alone.
-  _ensure_no_symlink "$HOME/.claude/skills"
-
   # Make necessary directories first.
   mkdir -p "$HOME/.config/ghostty"
   mkdir -p "$HOME/.config/bat"
@@ -177,23 +145,7 @@ main() {
   # Symlinking own Vim plugin scripts
   _ensure_symlink "$HOME/.vim/plugin" "$substance_dir/.vim/plugin/"
 
-  local name
-
-  # Symlinking Claude related files and folders
-  local -a skills
-  mapfile -t skills < <(find "$HOME/.claude/skills" -maxdepth 1 -mindepth 1 -type l)
-
-  # Clean up stale symlinks in ~/.claude/skills created by this script. This
-  # also removes the pre-plugin per-skill links (~/.claude/skills/sei-*), whose
-  # targets under claude-user/skills/ no longer exist.
-  for name in "${skills[@]}"; do
-    if [[ ! -e "$name" ]] && _points_into "$name" "$substance_dir"; then
-      sei::log_info "Skill symlink $name should no longer exist. Removing"
-
-      unlink "$name"
-    fi
-  done
-
+  # Symlinking Claude related files and folders.
   # One symlink to the `sei` plugin root; Claude Code loads it as
   # sei@skills-dir, so new skills appear without re-running this script.
   _ensure_symlink "$HOME/.claude/skills/sei" "$substance_dir/claude-plugin"
@@ -201,6 +153,7 @@ main() {
   _ensure_symlink "$HOME/.claude/CLAUDE.md" "$substance_dir/claude-user/CLAUDE-USER.md"
   _ensure_symlink "$HOME/.claude/settings.json" "$substance_dir/claude-user/settings.json"
 
+  local name
   local -a binaries
 
   mapfile -t binaries < <(ls -1 "$substance_dir/bin")

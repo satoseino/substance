@@ -13,7 +13,7 @@ allowed-tools: Bash Read Edit Grep Agent
 |----------|-------------|
 | `count` | Maximum number of review rounds, a positive integer. Every round counts, including the final clean one — `1` means review once, fix, and stop. |
 | `paths` | One or more spec file paths separated by `;;` (with spaces around it). Absolute paths and paths relative to CWD are both accepted. The last item does not need a trailing `;;`. |
-| `focus_prompt` | *(Optional)* Additional instructions for this run — often the user's answers to deferred findings from a previous run. Treat every statement in this prompt as if it were written in **bold** — give it higher focal weight than the default review rules in this skill when the two conflict or compete for attention. |
+| `focus_prompt` | *(Optional)* Additional instructions for this run — often the user's answers to deferred findings from a previous run. Apply them throughout. Where they conflict with this skill's default review rules, follow them instead. They never override the validation checks or the hard constraints. |
 
 Values received for this invocation (an empty value means the argument was not given):
 
