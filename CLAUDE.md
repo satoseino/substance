@@ -32,7 +32,7 @@ dnf as the primary package manager and Homebrew on Linux (`/home/linuxbrew/.linu
 `pre-commit` is configured in `.pre-commit-config.yaml` with five hooks:
 - **gelato** — secret scanning on every commit.
 - **shellcheck** and **shfmt** (`shfmt -w -i 2`) — lint and format the shell files on every commit.
-- **shell-cmd-on-change** `set-up` — automatically re-runs `set-up.sh` on `post-merge` if tracked files changed.
+- **shell-cmd-on-change** `set-up` — automatically re-runs `set-up.sh` on `post-merge` when `.keep` changes.
 - **shell-cmd-on-change** `nvim-lazy-restore` — runs `nvim --headless '+Lazy! restore' +qa` on `post-merge` when
   `nvim/lazy-lock.json` changes.
 
@@ -60,9 +60,7 @@ negative array indices, and empty-array expansion under `set -u`. Verify on macO
 
 ## Shell init architecture
 
-`dotfiles/.bashrc` is the entry point. It sets `$SEI_SUBSTANCE_DIR` first, then sources `lib/it-shell.sh` and immediately calls `sei::bash_init` (which sets up PATH, fnm, completion, and man pager). A `trap … RETURN` is armed to fire `sei::bash_post_init` once `dotfiles/.bashrc` finishes returning; that function resolves the current environment prefix (via `hostname`) and sources the matching `profile/<prefix>.bashrc`. After the trap, `dotfiles/.bashrc` sources the remaining interactive lib files: `lib/aliases.sh`, `lib/commands.sh`, `lib/cplan.sh`, and `lib/acmd.sh`.
-
-All module files guard against double-sourcing via a `_sei_module_set_<name>` env var at the top.
+`dotfiles/.bashrc` is the entry point. It sets `$SEI_SUBSTANCE_DIR` first, then sources `lib/it-shell.sh` and immediately calls `sei::bash_init` (which sets up PATH, fnm, completion, and man pager). A `trap … RETURN` is armed to fire `sei::bash_post_init` once `dotfiles/.bashrc` finishes returning; that function resolves the current environment prefix (via `hostname`) and sources the matching `profile/<prefix>.bashrc`. After the trap, `dotfiles/.bashrc` sources the remaining interactive lib files.
 
 `$SEI_SUBSTANCE_DIR` is the canonical env var pointing to the repo root; use it instead of hard-coding the path anywhere.
 
@@ -158,7 +156,7 @@ fi
 
 Key rules:
 - Scripts may only source `lib/utils.sh` — no other lib file.
-- The `-h` help block **must** use `cat <<'EOF'` (quoted). The `acmd` preview system finds the help range by matching the literal `<<'EOF'` marker; an unquoted heredoc will not be detected.
+- The `-h` help block **must** use `cat <<'EOF'` (quoted), for the same `acmd` preview reason as above.
 - The entry-point guard must call `main "$@"`, not bare `main`.
 
 Steps to add a new script:
@@ -167,7 +165,7 @@ Steps to add a new script:
 2. Add a matching bash completion file in `completions/<name>`.
 3. Run `./set-up.sh` — it symlinks everything in `bin/` into `~/.local/bin` automatically.
 4. Run `date > .keep` and commit the result. The `shell-cmd-on-change` pre-commit hook watches `.keep`; when other clones pull this commit, their `post-merge` hook will detect the change and automatically run `./set-up.sh` to pick up the new script.
-5. Run `acmd -d` to invalidate the cache; the next `acmd -l` or `acmd -p` invocation will rebuild it.
+5. Run `acmd -d` to invalidate the cache.
 
 ## Claude Code configuration
 
@@ -221,6 +219,7 @@ Conventions:
   the real `$HOME` or `.git/hooks`.
 - `test/plugin_manifest.sh` follows the same exception: it builds paths from `$SUBSTANCE_DIR` and checks the
   marketplace and plugin manifests with `jq` and that each skill's frontmatter `name` matches its folder.
+- `test/harness.sh` is another naming exception: it tests the test helpers themselves (e.g. the fake `gh`).
 
 New or changed skill scripts, and changes to `set-up.sh`, must come with tests in `test/`.
 
