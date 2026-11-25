@@ -124,9 +124,11 @@ EOF
   local -a labels=()
   local raw_arg
   for raw_arg in "$@"; do
-    local -a split_labels
+    local -a split_labels=()
     read -r -a split_labels <<<"$raw_arg"
-    labels+=("${split_labels[@]}")
+    if ((${#split_labels[@]} > 0)); then
+      labels+=("${split_labels[@]}")
+    fi
   done
 
   if ((${#labels[@]} == 0)); then
@@ -216,14 +218,16 @@ EOF
       echo "---"
     done < <(jq -c '.items[]' <<<"$result")
 
-    local -a unlinked
-    mapfile -t unlinked < <(jq -r '.label_map[] | select(.found == false) | .label' <<<"$result")
+    local -a unlinked=()
+    local u
+    while IFS= read -r u; do
+      unlinked+=("$u")
+    done < <(jq -r '.label_map[] | select(.found == false) | .label' <<<"$result")
 
     if ((${#unlinked[@]} > 0)); then
       echo
       echo "## Unlinked labels (no matching reviewer comment found):"
 
-      local u
       for u in "${unlinked[@]}"; do
         echo "- [$u]"
       done
