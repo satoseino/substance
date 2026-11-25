@@ -7,8 +7,8 @@ setup() {
   common_setup
   use_fake_gh
   fake_gh_respond auth '{"hosts":{"github.com":[{"login":"test-user","active":true}]}}'
-  SCRIPT="$SKILLS_DIR/sei-pr-review/scripts/fetch-pr-data"
-  FIXTURES="$BATS_TEST_DIRNAME/fixtures/sei-pr-review"
+  SCRIPT="$SKILLS_DIR/pr-review/scripts/fetch-pr-data"
+  FIXTURES="$BATS_TEST_DIRNAME/fixtures/pr-review"
 }
 
 help_flag() { #@test

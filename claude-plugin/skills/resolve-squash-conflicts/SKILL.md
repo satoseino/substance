@@ -1,5 +1,5 @@
 ---
-name: sei-resolve-squash-conflicts
+name: resolve-squash-conflicts
 description: "Resolve the conflicts of an in-progress merge on a stacked PR branch whose former base branch was squash-merged into the merge target. Takes the number of the squash-merged PR, stages the resolution without concluding the merge, and summarizes how each conflict was resolved."
 disable-model-invocation: true
 argument-hint: "<old_pr>"

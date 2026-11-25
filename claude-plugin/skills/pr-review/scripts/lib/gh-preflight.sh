@@ -1,4 +1,4 @@
-# Shared `gh` pre-flight check for the sei-pr-review scripts. Sourced, not
+# Shared `gh` pre-flight check for the pr-review scripts. Sourced, not
 # executed. Every script must call `_gh_preflight` before its first `gh` call.
 
 # Checks that `gh` is installed, new enough (>= 2.81.0, for

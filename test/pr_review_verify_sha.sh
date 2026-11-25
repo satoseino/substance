@@ -10,7 +10,7 @@ setup() {
   common_setup
   use_fake_gh
   fake_gh_respond auth '{"hosts":{"github.com":[{"login":"test-user","active":true}]}}'
-  SCRIPT="$SKILLS_DIR/sei-pr-review/scripts/verify-sha"
+  SCRIPT="$SKILLS_DIR/pr-review/scripts/verify-sha"
 
   repo_init
   text_lines 3 >f.txt

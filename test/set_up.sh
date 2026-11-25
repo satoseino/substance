@@ -58,16 +58,13 @@ fresh_install() { #@test
   assert_links_to "$HOME/.claude/CLAUDE.md" "$SUBSTANCE_DIR/claude-user/CLAUDE-USER.md"
   assert_links_to "$HOME/.claude/settings.json" "$SUBSTANCE_DIR/claude-user/settings.json"
 
-  local -a skills binaries
-  mapfile -t skills < <(ls -1 "$SUBSTANCE_DIR/claude-user/skills")
+  assert_links_to "$HOME/.claude/skills/sei" "$SUBSTANCE_DIR/claude-plugin"
+  assert_equal "$(ls -A "$HOME/.claude/skills")" sei
+
+  local -a binaries
   mapfile -t binaries < <(ls -1 "$SUBSTANCE_DIR/bin")
 
-  ((${#skills[@]} > 0))
   ((${#binaries[@]} > 0))
-
-  for name in "${skills[@]}"; do
-    assert_links_to "$HOME/.claude/skills/$name" "$SUBSTANCE_DIR/claude-user/skills/$name"
-  done
 
   for name in "${binaries[@]}"; do
     assert_links_to "$HOME/.local/bin/$name" "$SUBSTANCE_DIR/bin/$name"
@@ -230,14 +227,51 @@ non_symlink_at_ensure_symlink_path() { #@test
   assert_equal "$(ls -A "$HOME/.config/nvim")" ''
 }
 
-stale_skill_link_removed() { #@test
+legacy_skill_links_removed() { #@test
+  # The exact shape the pre-plugin per-skill scheme left behind, now broken.
   mkdir -p "$HOME/.claude/skills"
-  ln -s "$SUBSTANCE_DIR/claude-user/skills/sei-gone" "$HOME/.claude/skills/sei-gone"
+  ln -s "$SUBSTANCE_DIR/claude-user/skills/sei-pr-review" "$HOME/.claude/skills/sei-pr-review"
 
   run --separate-stderr "$SCRIPT"
 
   assert_success
-  assert [ ! -L "$HOME/.claude/skills/sei-gone" ]
+  assert [ ! -L "$HOME/.claude/skills/sei-pr-review" ]
+  assert [ ! -e "$HOME/.claude/skills/sei-pr-review" ]
+  assert_output --partial 'should no longer exist. Removing'
+  assert_links_to "$HOME/.claude/skills/sei" "$SUBSTANCE_DIR/claude-plugin"
+}
+
+foreign_skill_entries_kept() { #@test
+  local foreign="$BATS_TEST_TMPDIR/foreign-skill"
+  mkdir -p "$foreign" "$HOME/.claude/skills/other-plugin/.claude-plugin"
+  printf 'keep\n' >"$HOME/.claude/skills/other-plugin/.claude-plugin/plugin.json"
+  ln -s "$foreign" "$HOME/.claude/skills/foreign"
+  ln -s "$BATS_TEST_TMPDIR/nowhere" "$HOME/.claude/skills/broken"
+
+  run --separate-stderr "$SCRIPT"
+
+  assert_success
+  assert [ -d "$HOME/.claude/skills/other-plugin" ]
+  assert [ ! -L "$HOME/.claude/skills/other-plugin" ]
+  assert_equal "$(ls -A "$HOME/.claude/skills/other-plugin/.claude-plugin")" plugin.json
+  assert_equal "$(<"$HOME/.claude/skills/other-plugin/.claude-plugin/plugin.json")" keep
+  assert_links_to "$HOME/.claude/skills/foreign" "$foreign"
+  assert [ -L "$HOME/.claude/skills/broken" ]
+  assert_equal "$(readlink "$HOME/.claude/skills/broken")" "$BATS_TEST_TMPDIR/nowhere"
+}
+
+plugin_link_wrong_target_replaced() { #@test
+  local other="$BATS_TEST_TMPDIR/other-plugin"
+  mkdir -p "$other" "$HOME/.claude/skills"
+  printf 'keep\n' >"$other/marker"
+  ln -s "$other" "$HOME/.claude/skills/sei"
+
+  run --separate-stderr "$SCRIPT"
+
+  assert_success
+  assert_links_to "$HOME/.claude/skills/sei" "$SUBSTANCE_DIR/claude-plugin"
+  assert_equal "$(ls -A "$other")" marker
+  assert_equal "$(<"$other/marker")" keep
 }
 
 stale_bin_link_removed() { #@test
@@ -287,14 +321,7 @@ old_skills_symlink_torn_down() { #@test
   assert_success
   assert [ -d "$HOME/.claude/skills" ]
   assert [ ! -L "$HOME/.claude/skills" ]
-
-  local -a skills
-  mapfile -t skills < <(ls -1 "$SUBSTANCE_DIR/claude-user/skills")
-
-  local name
-  for name in "${skills[@]}"; do
-    assert_links_to "$HOME/.claude/skills/$name" "$SUBSTANCE_DIR/claude-user/skills/$name"
-  done
+  assert_links_to "$HOME/.claude/skills/sei" "$SUBSTANCE_DIR/claude-plugin"
 
   assert_equal "$(ls -A "$old")" marker
   assert_equal "$(<"$old/marker")" keep

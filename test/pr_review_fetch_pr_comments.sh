@@ -8,8 +8,8 @@ PR_URL=https://github.com/o/r/pull/7
 setup() {
   common_setup
   use_fake_gh
-  SCRIPT="$SKILLS_DIR/sei-pr-review/scripts/fetch-pr-comments"
-  FIXTURES="$BATS_TEST_DIRNAME/fixtures/sei-pr-review"
+  SCRIPT="$SKILLS_DIR/pr-review/scripts/fetch-pr-comments"
+  FIXTURES="$BATS_TEST_DIRNAME/fixtures/pr-review"
 
   fake_gh_respond auth '{"hosts":{"github.com":[{"login":"reviewer","active":true}]}}'
   fake_gh_respond api_repos_o_r_pulls_7_comments "$(<"$FIXTURES/inline_comments.json")"

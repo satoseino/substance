@@ -1,0 +1,7 @@
+{
+  "name": "sei",
+  "description": "Claude Code skills for PR-based development: specs, implementation, PR messages, PR review and follow-up, stacked-branch conflict resolution",
+  "author": { "name": "satoseino" },
+  "repository": "https://github.com/satoseino/substance",
+  "license": "Unlicense"
+}

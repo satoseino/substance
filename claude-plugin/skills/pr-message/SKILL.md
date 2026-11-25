@@ -1,5 +1,5 @@
 ---
-name: sei-pr-message
+name: pr-message
 description: "Emit a brief GitHub PR message (title + description) in raw markdown summarizing the changes discussed in the current conversation, ready to be copied with `/copy`."
 disable-model-invocation: true
 ---

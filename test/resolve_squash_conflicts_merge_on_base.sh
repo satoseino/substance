@@ -7,7 +7,7 @@ load "test_helper/git_repo"
 
 setup() {
   common_setup
-  SCRIPT="$SKILLS_DIR/sei-resolve-squash-conflicts/scripts/merge-on-base"
+  SCRIPT="$SKILLS_DIR/resolve-squash-conflicts/scripts/merge-on-base"
 }
 
 help_flag() { #@test

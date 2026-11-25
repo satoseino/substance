@@ -17,7 +17,7 @@ repos:
             lib/[^/]+\.sh|
             profile/[^/]+\.bashrc|
             dotfiles/\.bash(rc|_profile|_logout)|
-            claude-user/skills/[^/]+/scripts/.+|
+            claude-plugin/skills/[^/]+/scripts/.+|
             test/[^/]+\.(sh|bash)|
             test/test_helper/[^/]+\.bash|
             test/test_helper/fake-gh|

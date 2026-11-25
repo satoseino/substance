@@ -1,5 +1,5 @@
 ---
-name: sei-pr-comment
+name: pr-comment
 description: "Emit a GitHub PR review comment in raw markdown for a given finding label, ready to be copied with `/copy`."
 disable-model-invocation: true
 argument-hint: "<finding-label>"
