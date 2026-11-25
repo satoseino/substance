@@ -41,9 +41,16 @@ EOF
 # the current PATH, so it links the same binary. The `#!/usr/bin/env bash`
 # test stand-ins (test_helper/fake-gh and the mktemp shim) also run on it, so
 # they must stay Bash 3.2-compatible.
+# Fail fast on anything but an absolute path to an executable file: a relative
+# target would make the symlink dangle, and PATH lookup would then silently
+# skip it and run the scripts on the suite's own bash.
 _common::shim_script_bash() {
   if [[ -z ${SEI_TEST_SCRIPT_BASH:-} ]]; then
     return 0
+  fi
+  if [[ $SEI_TEST_SCRIPT_BASH != /* || ! -f $SEI_TEST_SCRIPT_BASH || ! -x $SEI_TEST_SCRIPT_BASH ]]; then
+    echo "SEI_TEST_SCRIPT_BASH must be an absolute path to an executable file: '$SEI_TEST_SCRIPT_BASH'" >&2
+    return 1
   fi
   local shim_dir="$BATS_TEST_TMPDIR/script-bash"
   mkdir -p "$shim_dir"
