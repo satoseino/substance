@@ -28,6 +28,30 @@ jobs:
       - name: Run bats tests
         run: BATS_FILE_EXTENSION=sh ./test/bats/bin/bats test/
 
+  # Skill scripts ship to other users and must run on the Bash 3.2.57 that
+  # macOS keeps at /bin/bash. Run them on it via SEI_TEST_SCRIPT_BASH, while
+  # bats and the test helpers run on Homebrew's modern Bash.
+  bats-test-bash32:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code with submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install bash and jq from Homebrew
+        run: brew install bash jq
+
+      - name: Print tool versions
+        run: |
+          bash --version | head -n 1
+          /bin/bash --version | head -n 1
+          jq --version | head -n 1
+
+      - name: Run bats tests with skill scripts on /bin/bash
+        run: SEI_TEST_SCRIPT_BASH=/bin/bash BATS_FILE_EXTENSION=sh ./test/bats/bin/bats test/
+
   lint:
     runs-on: ubuntu-latest
 

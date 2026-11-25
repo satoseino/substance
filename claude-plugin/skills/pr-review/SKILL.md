@@ -9,14 +9,12 @@ allowed-tools: Bash Read Write Edit Grep Skill
 
 ## Web Search
 
-If you are uncertain about a library, API, or technology referenced in the PR, discover a web
-search tool via `jarvis-registry`:
-
-1. Call the `discover_servers` tool of the `jarvis-registry` MCP server with a concise keyword query (e.g. `"tavily web search"`).
-2. Pick the result with the highest relevance score whose description matches a web search tool.
-3. Call the `execute_tool` tool of the `jarvis-registry` MCP server with that tool to retrieve current documentation.
-
-Use the results to inform your review rather than guessing at behavior.
+If you are uncertain about a library, API, or technology referenced in the PR, look it up with
+whatever web search or web fetch tool is available in this session, such as the built-in
+`WebSearch`/`WebFetch` or one provided by an MCP server. If the user's instructions (e.g. their
+CLAUDE.md) name a preferred search tool, use that one. If no web tool is available, continue the
+review without it and say in the report which points could not be verified. Use the results to
+inform your review rather than guessing at behavior.
 
 ---
 
@@ -67,7 +65,7 @@ URL, invoke the `sei:fetch-single-comment` skill (Skill tool, `skill: "sei:fetch
 2. **Read the spec.** Open `$spec_file` with the `Read` tool. Extract the intended behavior,
    acceptance criteria, and any explicitly called-out focus areas. Keep these in mind throughout.
 
-3. **Fetch PR data** (not jarvis-registry directly). Run via `Bash`:
+3. **Fetch PR data** with the bundled script (not a GitHub MCP tool). Run via `Bash`:
 
    ```
    result=$(${CLAUDE_SKILL_DIR}/scripts/fetch-pr-data "$pr_url")
@@ -265,7 +263,7 @@ and all findings from previous sessions. If you need to read additional source f
 
 Extract all finding labels from the `changes_requested` field of the report file's front
 matter (e.g. `changes_requested: [C1, M2]` parses to `["C1", "M2"]`) and join with spaces (e.g. `C1 M2`).
-Run via `Bash` (not jarvis-registry directly):
+Run via `Bash` with the bundled script (not a GitHub MCP tool):
 
 ```
 result=$(${CLAUDE_SKILL_DIR}/scripts/fetch-pr-comments $pr_url $labels)

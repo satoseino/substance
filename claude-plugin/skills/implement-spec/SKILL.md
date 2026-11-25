@@ -49,7 +49,7 @@ Run all three checks before making any change, in order. Stop at the first failu
 
 If — and only if — all three checks pass:
 
-**You are free to make git commits or use state-mutating git commands (`add`, `commit`, `push`, `branch`, `checkout`, `reset`, `merge`, `rebase`, etc.) for the remainder of this session, as you see fit. This is an intentional and explicit greenlight from the global rule that otherwise reserves state-mutating git operations to the user — it applies here specifically because the pre-flight checks above already confirmed a clean, non-`main` branch to work from.**
+**You are free to make git commits or use state-mutating git commands (`add`, `commit`, `push`, `branch`, `checkout`, `reset`, `merge`, `rebase`, etc.) for the remainder of this session, as you see fit. This is an intentional and explicit greenlight that overrides any instruction (e.g. in the user's CLAUDE.md) reserving state-mutating git operations to the user — it applies here specifically because the pre-flight checks above already confirmed a clean, non-`main` branch to work from.**
 
 Read `$spec_path` with `Read` and implement it in full on the current branch, using `Read`/`Grep`/`Bash` (including `git log`/`git blame` for history and authorship context) to explore the codebase as needed and `Write`/`Edit` to make changes. If `$focus_prompt` is present, keep it in mind throughout the implementation as described above. Commit work at logical checkpoints with Conventional Commits style messages that explain why. Use your own judgment on how many commits to make and when to make them — do not ask the user for permission before each individual commit.
 

@@ -11,6 +11,7 @@ common_setup() {
   # which bats removes afterwards.
   export TMPDIR="$BATS_TEST_TMPDIR"
   _common::shim_mktemp
+  _common::shim_script_bash
 }
 
 # macOS mktemp ignores TMPDIR when called without a template, so put a mktemp
@@ -30,6 +31,30 @@ done
 exec "$real" -p "\$TMPDIR" "\$@"
 EOF
   chmod +x "$shim_dir/mktemp"
+  export PATH="$shim_dir:$PATH"
+}
+
+# Opt-in: when SEI_TEST_SCRIPT_BASH names a bash binary (e.g. /bin/bash 3.2
+# on macOS), put a `bash` symlink to it first on PATH. Scripts start with
+# `#!/usr/bin/env bash`, so they run on it, while bats and these helpers stay
+# on the bash running the suite. use_path_without_gh resolves `bash` against
+# the current PATH, so it links the same binary. The `#!/usr/bin/env bash`
+# test stand-ins (test_helper/fake-gh and the mktemp shim) also run on it, so
+# they must stay Bash 3.2-compatible.
+# Fail fast on anything but an absolute path to an executable file: a relative
+# target would make the symlink dangle, and PATH lookup would then silently
+# skip it and run the scripts on the suite's own bash.
+_common::shim_script_bash() {
+  if [[ -z ${SEI_TEST_SCRIPT_BASH:-} ]]; then
+    return 0
+  fi
+  if [[ $SEI_TEST_SCRIPT_BASH != /* || ! -f $SEI_TEST_SCRIPT_BASH || ! -x $SEI_TEST_SCRIPT_BASH ]]; then
+    echo "SEI_TEST_SCRIPT_BASH must be an absolute path to an executable file: '$SEI_TEST_SCRIPT_BASH'" >&2
+    return 1
+  fi
+  local shim_dir="$BATS_TEST_TMPDIR/script-bash"
+  mkdir -p "$shim_dir"
+  ln -sf "$SEI_TEST_SCRIPT_BASH" "$shim_dir/bash"
   export PATH="$shim_dir:$PATH"
 }
 

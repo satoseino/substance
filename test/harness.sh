@@ -97,3 +97,33 @@ mktemp_lands_in_test_tmpdir() { #@test
   f=$(mktemp)
   [[ $f == "$BATS_TEST_TMPDIR"/* ]]
 }
+
+# The child bash must expand $BASH_VERSION, so the single quotes are intended.
+# shellcheck disable=SC2016
+script_bash_shim_used() { #@test
+  if [[ -z ${SEI_TEST_SCRIPT_BASH:-} ]]; then
+    skip "SEI_TEST_SCRIPT_BASH is not set"
+  fi
+  local want
+  want=$("$SEI_TEST_SCRIPT_BASH" -c 'echo "$BASH_VERSION"')
+
+  run -0 bash -c 'echo "$BASH_VERSION"'
+  assert_output "$want"
+
+  use_path_without_gh
+  run -0 bash -c 'echo "$BASH_VERSION"'
+  assert_output "$want"
+}
+
+script_bash_shim_rejects_relative_path() { #@test
+  SEI_TEST_SCRIPT_BASH=bin/bash run -1 --separate-stderr _common::shim_script_bash
+  assert_equal "$stderr" "SEI_TEST_SCRIPT_BASH must be an absolute path to an executable file: 'bin/bash'"
+}
+
+script_bash_shim_rejects_missing_file() { #@test
+  SEI_TEST_SCRIPT_BASH="$BATS_TEST_TMPDIR/no-such-bash" run -1 _common::shim_script_bash
+}
+
+script_bash_shim_rejects_directory() { #@test
+  SEI_TEST_SCRIPT_BASH="$BATS_TEST_TMPDIR" run -1 _common::shim_script_bash
+}

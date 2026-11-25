@@ -4,6 +4,9 @@
 load "test_helper/common"
 
 setup() {
+  # set-up.sh targets Bash 5.1 and is not a skill script, so never run it on
+  # the Bash 3.2 that SEI_TEST_SCRIPT_BASH may select.
+  unset SEI_TEST_SCRIPT_BASH
   common_setup
 
   # Resolve like set-up.sh resolves its own directory, so -ef and
