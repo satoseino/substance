@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Personal platform for AI-assisted workflow.
+Personal dotfiles and Claude Code skills for AI-assisted work.
 
 - Everything except `claude-plugin/` is the author's own (shell config, NeoVim, `bin/`, `lib/`, `profile/`,
   `claude-user/`) and is not designed for reuse by others.

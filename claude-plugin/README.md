@@ -1,8 +1,7 @@
 # Claude Code skills for PR-based development
 
-Nine Claude Code skills that cover a pull request's life, from the
-end of a design conversation to the follow-up review after the author pushes fixes. They are in daily use, and their
-bundled scripts are tested with bats in CI.
+Claude Code skills that cover a pull request's life, from the end of a design conversation to the follow-up review
+after the author pushes fixes. They are in daily use, and their bundled scripts are tested with bats in CI.
 
 ## The workflow
 
