@@ -145,8 +145,6 @@ main() {
   # Symlinking own Vim plugin scripts
   _ensure_symlink "$HOME/.vim/plugin" "$substance_dir/.vim/plugin/"
 
-  local name
-
   # Symlinking Claude related files and folders.
   # One symlink to the `sei` plugin root; Claude Code loads it as
   # sei@skills-dir, so new skills appear without re-running this script.
@@ -155,6 +153,7 @@ main() {
   _ensure_symlink "$HOME/.claude/CLAUDE.md" "$substance_dir/claude-user/CLAUDE-USER.md"
   _ensure_symlink "$HOME/.claude/settings.json" "$substance_dir/claude-user/settings.json"
 
+  local name
   local -a binaries
 
   mapfile -t binaries < <(ls -1 "$substance_dir/bin")
