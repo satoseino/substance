@@ -95,7 +95,7 @@ namespace, which a lone skill folder does not get.
 | `pr-review` | `git`; `gh` >= 2.81.0 (for `gh auth status --json`), authenticated to github.com; `jq` | PRs on github.com only (`scripts/lib/gh-preflight.sh` reads the `github.com` host); invokes `sei:fetch-single-comment` when a focus prompt names a comment URL; uses any available web search tool, else reviews without one |
 | `fetch-single-comment` | `gh` (authenticated), `jq` | github.com comment URLs |
 | `resolve-squash-conflicts` | `git` (`merge-file`, `ls-remote`, `fetch`) | `origin` serves `refs/pull/<n>/head`, as GitHub does |
-| `implement-spec` | `git` | Refuses only on a branch named `main`; grants itself commits and other state-changing git commands, including `push`, for the rest of the session |
+| `implement-spec` | `git` | Refuses only on a branch named `main`; grants itself commits and other state-changing local git commands for the rest of the session, but never `push` |
 | `write-specs`, `specs-review-loop`, `pr-message`, `pr-comment`, `session-file` | none | — |
 
 - Bundled scripts run with the first `bash` on `PATH` and are tested on Bash 3.2 (stock macOS `/bin/bash`) and Bash 5.
