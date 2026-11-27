@@ -11,6 +11,8 @@ alias gs='git status'
 # ------------------------------------------------------------------------
 # Functions.
 
+source "$SEI_SUBSTANCE_DIR/lib/utils.sh"
+source "$SEI_SUBSTANCE_DIR/lib/commands.sh"
 source "$SEI_SUBSTANCE_DIR/lib/rw.sh"
 source "$SEI_SUBSTANCE_DIR/lib/jarvis-logs.sh"
 source "$SEI_SUBSTANCE_DIR/lib/jarvis-dc.sh"
@@ -45,9 +47,6 @@ gjrw() {
 }
 # ------------------------------------------------------------------------
 # Daily update.
-
-source "$SEI_SUBSTANCE_DIR/lib/utils.sh"
-source "$SEI_SUBSTANCE_DIR/lib/commands.sh"
 
 # Run the morning update steps in Ghostty's quick terminal, at most once every 24 hours.
 # The stamp is touched only when every step succeeds, so a failure or Ctrl-C retries next time.
