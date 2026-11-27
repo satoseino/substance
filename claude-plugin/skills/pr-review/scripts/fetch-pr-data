@@ -11,12 +11,20 @@ main() {
     cat <<'EOF'
 Usage: fetch-pr-data [-h] PR_URL
 
-Fetch a GitHub pull request's title, base branch, and description via the `gh`
-CLI. On success, writes a fixed plain-text format to a temporary file and
-prints that file's absolute path to stdout. Requires the `gh` CLI (>= 2.81.0)
-to be installed and authenticated; on any failure (missing gh, unsupported gh
-version, not logged in, or a GitHub API error) prints `ERROR: <reason>` to
-stdout instead.
+Fetch a GitHub pull request's title, base branch, the base branch's current
+commit, and description via the `gh` CLI. On success, writes a fixed
+plain-text format to a temporary file and prints that file's absolute path to
+stdout.
+
+The base commit must exist in the current git repository. When it is missing
+locally, it is fetched from `origin`'s base branch, writing objects only: no
+refs are created or updated and `FETCH_HEAD` is not written. `origin` must
+therefore be the PR's base repository.
+
+Requires `git`, and the `gh` CLI (>= 2.81.0) installed and authenticated. On
+any failure (missing gh, unsupported gh version, not logged in, a GitHub API
+error, not inside a git repository, or a base commit that cannot be fetched)
+prints `ERROR: <reason>` to stdout instead.
 
 ARGUMENTS:
     PR_URL      Full URL to the GitHub pull request, e.g.
@@ -54,22 +62,53 @@ EOF
   trap 'rm -f "$stderr_file"' EXIT
 
   local json
-  if ! json=$(gh pr view "$pr_url" --json title,body,baseRefName 2>"$stderr_file"); then
+  if ! json=$(gh pr view "$pr_url" --json title,body,baseRefName,baseRefOid 2>"$stderr_file"); then
     echo "ERROR: $(<"$stderr_file")"
 
     return 0
   fi
 
-  local title base_branch body
+  local title base_branch base_sha body
   title=$(jq -r '.title' <<<"$json")
   base_branch=$(jq -r '.baseRefName' <<<"$json")
+  base_sha=$(jq -r '.baseRefOid' <<<"$json")
   body=$(jq -r '(.body // "") | gsub("\r"; "")' <<<"$json")
+
+  if ! [[ $base_sha =~ ^[0-9a-f]{40}$ ]]; then
+    echo "ERROR: unexpected PR base SHA from gh: '$base_sha'"
+
+    return 0
+  fi
+
+  if ! git rev-parse --git-dir >/dev/null 2>"$stderr_file"; then
+    echo "ERROR: $(<"$stderr_file")"
+
+    return 0
+  fi
+
+  if ! git cat-file -e "$base_sha^{commit}" 2>/dev/null; then
+    # Objects only: the empty --refmap stops the opportunistic update of
+    # refs/remotes/origin/<base>, and FETCH_HEAD is not written. Fetching the
+    # branch rather than the SHA still finds base_sha if the branch has moved on.
+    if ! git fetch -q --no-tags --no-write-fetch-head --refmap= origin \
+      "refs/heads/$base_branch" 2>"$stderr_file"; then
+      echo "ERROR: failed to fetch origin's $base_branch: $(<"$stderr_file")"
+
+      return 0
+    fi
+
+    if ! git cat-file -e "$base_sha^{commit}" 2>/dev/null; then
+      echo "ERROR: base commit $base_sha not found on origin's $base_branch; is origin the PR's base repository?"
+
+      return 0
+    fi
+  fi
 
   local outfile
   outfile=$(mktemp)
 
-  printf 'PR_TITLE: %s\nBASE_BRANCH: %s\n\nPR_MESSAGE:\n<pr_message>\n%s\n</pr_message>\n' \
-    "$title" "$base_branch" "$body" >"$outfile"
+  printf 'PR_TITLE: %s\nBASE_BRANCH: %s\nBASE_SHA: %s\n\nPR_MESSAGE:\n<pr_message>\n%s\n</pr_message>\n' \
+    "$title" "$base_branch" "$base_sha" "$body" >"$outfile"
 
   echo "$outfile"
 }
