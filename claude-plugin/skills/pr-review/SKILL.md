@@ -265,8 +265,7 @@ result=$(${CLAUDE_SKILL_DIR}/scripts/fetch-pr-data "$pr_url")
 
 If `$result` starts with `ERROR:`, stop immediately and relay the error reported by the script
 to the user verbatim. Otherwise, `$result` is the absolute path to a file — `Read` it and parse
-`BASE_SHA` and `BASE_BRANCH`. If `BASE_BRANCH` differs from the base branch the loaded report
-names (the PR was retargeted), mention it in the Step 4 brief report.
+`BASE_SHA`.
 
 ### Step 3 — Follow-Up Review
 
