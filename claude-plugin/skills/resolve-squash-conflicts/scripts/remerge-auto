@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+
+set -eu -o pipefail
+
+script_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+source "$script_dir/lib/lockfiles.sh"
+
+main() {
+  if (($# > 0)) && [[ $1 == "-h" ]]; then
+    cat <<'EOF'
+Usage: remerge-auto [-h] <base>
+
+Re-merges every path that Git auto-merged in an in-progress merge on a stacked branch,
+with <base> as the common ancestor (via the sibling merge-on-base script), and lists the
+paths that need review. Git merged them against the wrong ancestor, so a clean
+auto-merge can still be wrong.
+
+Meant to run once, before any conflicted path is resolved: it tells conflicted paths
+apart by their unmerged index entries, which staging a resolution removes, so a path
+resolved earlier would be re-merged over its resolution.
+
+It takes every path changed since <base> on either side (HEAD or MERGE_HEAD) and skips
+paths with unmerged index entries. A path whose working tree already differs from the
+index is not touched (dirty), and neither is a generated lockfile both sides changed
+since <base> (lockfile). merge-on-base runs on every other path and writes its result to
+the working tree. Stages nothing.
+
+Except with `-h`, prints one of the following to stdout for consumption by an LLM:
+
+    REMERGE: <checked> checked, <listed> listed
+    differs\t<path>
+    conflicts\t<path>\t<n>
+    lockfile\t<path>
+    dirty\t<path>
+    error\t<path>\t<reason>
+    ...
+
+    ERROR: <reason>
+
+<checked> is the number of changed paths left after skipping unmerged ones; <listed> is
+the number of lines that follow. <path> is relative to the repository's top level.
+
+    differs     merge-on-base merged cleanly, but its result differs from Git's auto-merge
+    conflicts   merge-on-base left <n> conflict blocks in the working-tree file
+    lockfile    a generated lockfile both sides changed; left untouched
+    dirty       the working tree already differed from the index; left untouched
+    error       merge-on-base printed `ERROR: <reason>`; left untouched
+
+A path whose clean result equals the index (Git's auto-merge) is not listed.
+
+Always exits 0; the outcome is conveyed by stdout alone.
+
+ARGUMENTS:
+    base        BASE from preflight: the last old-base commit the stacked branch contains
+
+OPTIONS:
+    -h          Show this help message
+EOF
+
+    return 0
+  fi
+
+  if (($# != 1)); then
+    echo "ERROR: remerge-auto takes exactly one positional argument: <base>"
+
+    return 0
+  fi
+
+  local base=$1
+
+  # Paths are fed to git as pathspecs; match them literally.
+  export GIT_LITERAL_PATHSPECS=1
+
+  local toplevel
+  if ! toplevel=$(git rev-parse --show-toplevel 2>&1) || ! cd "$toplevel"; then
+    echo "ERROR: cannot enter the repository's top level: $toplevel"
+
+    return 0
+  fi
+
+  if ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+    echo "ERROR: no merge in progress (MERGE_HEAD missing)"
+
+    return 0
+  fi
+
+  if ! git rev-parse -q --verify "$base^{commit}" >/dev/null; then
+    echo "ERROR: '$base' is not a commit"
+
+    return 0
+  fi
+
+  # Not local: the EXIT trap runs after main returns.
+  if ! tmp_dir=$(mktemp -d 2>&1); then
+    echo "ERROR: $tmp_dir"
+
+    return 0
+  fi
+  trap 'rm -rf "$tmp_dir"' EXIT
+
+  local rev
+  for rev in HEAD MERGE_HEAD; do
+    if ! git diff --name-only -z --no-renames --no-relative "$base" "$rev" >"$tmp_dir/$rev" 2>"$tmp_dir/stderr"; then
+      echo "ERROR: $(<"$tmp_dir/stderr")"
+
+      return 0
+    fi
+  done
+
+  local path checked=0 listed=0 lines="" in_both output
+  for rev in HEAD MERGE_HEAD; do
+    while IFS= read -r -d '' path; do
+      # A path in both lists is handled on the HEAD pass.
+      in_both=no
+      if ! git diff --quiet "$base" HEAD -- "$path"; then
+        [[ $rev == MERGE_HEAD ]] && continue
+        git diff --quiet "$base" MERGE_HEAD -- "$path" || in_both=yes
+      fi
+
+      # Unmerged paths belong to the conflicted-path step.
+      if [[ -n "$(git ls-files -u -- "$path")" ]]; then
+        continue
+      fi
+      checked=$((checked + 1))
+
+      if ! matches_index "$path"; then
+        lines+="dirty	$path"$'\n'
+        listed=$((listed + 1))
+        continue
+      fi
+
+      if [[ $in_both == yes ]] && _is_generated_lockfile "$path"; then
+        lines+="lockfile	$path"$'\n'
+        listed=$((listed + 1))
+        continue
+      fi
+
+      output=$("$script_dir/merge-on-base" "$base" "$path" 2>&1 || true)
+      case $output in
+      "MERGE: CLEAN")
+        matches_index "$path" && continue
+        lines+="differs	$path"$'\n'
+        ;;
+      "MERGE: CONFLICTS "*)
+        lines+="conflicts	$path	${output#MERGE: CONFLICTS }"$'\n'
+        ;;
+      "ERROR: "*)
+        lines+="error	$path	${output#ERROR: }"$'\n'
+        ;;
+      *)
+        lines+="error	$path	unexpected merge-on-base output: $output"$'\n'
+        ;;
+      esac
+      listed=$((listed + 1))
+    done <"$tmp_dir/$rev"
+  done
+
+  echo "REMERGE: $checked checked, $listed listed"
+  printf '%s' "$lines"
+}
+
+# matches_index <path>: succeeds when the working tree matches the index at <path>; a
+# path absent from the index matches only when the working tree lacks it too.
+matches_index() {
+  if [[ -n "$(git ls-files -- "$1")" ]]; then
+    git diff --quiet --no-ext-diff -- "$1"
+  else
+    [[ ! -e $1 && ! -L $1 ]]
+  fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi
