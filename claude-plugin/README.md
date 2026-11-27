@@ -92,7 +92,7 @@ namespace, which a lone skill folder does not get.
 
 | Skill | External tools | Assumptions |
 |---|---|---|
-| `pr-review` | `git`; `gh` >= 2.81.0 (for `gh auth status --json`), authenticated to github.com; `jq` | PRs on github.com only (`scripts/lib/gh-preflight.sh` reads the `github.com` host); invokes `sei:fetch-single-comment` when a focus prompt names a comment URL; uses any available web search tool, else reviews without one |
+| `pr-review` | `git`; `gh` >= 2.81.0 (for `gh auth status --json`), authenticated to github.com; `jq` | PRs on github.com only (`scripts/lib/gh-preflight.sh` reads the `github.com` host); invokes `sei:fetch-single-comment` when a focus prompt names a comment URL; uses any available web search tool, else reviews without one; `origin` must be the PR's base repository: `fetch-pr-data` reads the base commit from GitHub and, if it isn't local, fetches objects only from `origin`'s base branch (no refs written) |
 | `fetch-single-comment` | `gh` (authenticated), `jq` | github.com comment URLs |
 | `resolve-squash-conflicts` | `git` (`merge-file`, `ls-remote`, `fetch`) | `origin` serves `refs/pull/<n>/head`, as GitHub does |
 | `implement-spec` | `git` (`symbolic-ref`, `ls-remote`) | Refuses `origin`'s default branch (from `origin/HEAD`, else `git ls-remote`), `main`, `master` and a detached HEAD; fails closed when `origin` exists but its default branch can't be determined; grants itself commits and other state-changing local git commands for the rest of the session, but never `push` |

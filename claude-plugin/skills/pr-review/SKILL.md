@@ -20,7 +20,7 @@ inform your review rather than guessing at behavior.
 
 ## Shared Procedure: Verify SHA
 
-Used by both `start` (Review Process step 1) and `followup` (Step 2) to confirm the local HEAD
+Used by both `start` (Review Process step 1) and `followup` (Step 2 — Verify SHA and fetch PR base) to confirm the local HEAD
 matches the PR's current head commit before any review work begins. Works the same whether the
 PR's head branch lives in this repo or in a fork, and whatever the local checkout looks like
 (named branch, `pr/N` branch, or detached HEAD).
@@ -73,10 +73,12 @@ URL, invoke the `sei:fetch-single-comment` skill (Skill tool, `skill: "sei:fetch
 
    If `$result` starts with `ERROR:`, stop immediately and relay the error reported by the
    script to the user verbatim. Otherwise, `$result` is the absolute path to a file — `Read`
-   it and parse `PR_TITLE`, `BASE_BRANCH`, and `PR_MESSAGE` (the content inside
+   it and parse `PR_TITLE`, `BASE_BRANCH`, `BASE_SHA`, and `PR_MESSAGE` (the content inside
    `<pr_message>…</pr_message>`) from its content.
 
-4. **Collect full diff of all changed files**: use the base branch obtained from the PR data in Step 3 and run `git diff origin/<base_branch>...HEAD`.
+4. **Collect full diff of all changed files**: run `git diff <BASE_SHA>...HEAD` with the `BASE_SHA` from Step 3.
+   `BASE_SHA` is the base branch's current tip on GitHub, so the diff matches GitHub's PR diff
+   whatever the state of the local `origin/<base>` tracking ref.
 
 5. **Explore local context** using `Read`/`Grep` and `Bash` — including `git log` and `git blame`
    for history and authorship context — to understand how the changed code fits into the
@@ -191,7 +193,6 @@ Write a session manifest file to `$session_file` (create parent directories with
 load:
   - <$spec_file — path relative to CWD>
   - <$report_file — path relative to CWD>
-base_branch: <base branch name fetched in Step 3>
 next_labels:
   C: <computed next Critical number>
   M: <computed next Major number>
@@ -239,19 +240,33 @@ If `$focus_prompt` asks you to look at a specific PR comment by URL, invoke the
 
 1. Read the session manifest at `$session_file`. Parse its YAML front matter to extract:
    - `load:` — list of file paths relative to CWD
-   - `base_branch:` — the PR's base branch name
+
+   Manifests written by earlier versions of this skill may also have a `base_branch:` key; ignore
+   it. The base is fetched fresh in Step 2.
 2. Read every file listed under `load:`, in order.
    - If any file is missing, **stop immediately** and report which path was not found.
 3. Read the markdown body of the session manifest to absorb any prior session notes.
 4. The **last entry** in the `load:` list is the **report file** — the single report file used
    throughout all sessions for this PR. All other entries before it are spec or spec-like files.
-   Note its `pr_url` front-matter field — needed in Step 2 to verify the SHA and in Step 3 to
+   Note its `pr_url` front-matter field — needed in Step 2 to verify the SHA and fetch the PR base, and in Step 3 to
    fetch reviewer comments.
 
-### Step 2 — Verify SHA
+### Step 2 — Verify SHA and fetch PR base
 
 Follow the Shared Procedure: Verify SHA above with the `pr_url` from Step 1. If it fails,
 **stop immediately and report the failure** to the user before proceeding further.
+
+Then fetch the PR data with the bundled script (not a GitHub MCP tool). Run via `Bash`,
+substituting `$pr_url` with the same `pr_url`:
+
+```
+result=$(${CLAUDE_SKILL_DIR}/scripts/fetch-pr-data "$pr_url")
+```
+
+If `$result` starts with `ERROR:`, stop immediately and relay the error reported by the script
+to the user verbatim. Otherwise, `$result` is the absolute path to a file — `Read` it and parse
+`BASE_SHA` and `BASE_BRANCH`. If `BASE_BRANCH` differs from the base branch the loaded report
+names (the PR was retargeted), mention it in the Step 4 brief report.
 
 ### Step 3 — Follow-Up Review
 
@@ -293,8 +308,7 @@ you will issue a warning in the Step 4 brief report (do not record it in the rep
 
 #### Obtain the PR diff
 
-Run `git diff origin/<base_branch>...HEAD` using the `base_branch` value parsed from the
-session manifest.
+Run `git diff <BASE_SHA>...HEAD` with the `BASE_SHA` from Step 2.
 
 Use this diff as the primary source of changes for both review tracks below.
 
