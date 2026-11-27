@@ -50,7 +50,7 @@ gjrw() {
 # Fast-forward the substance repo's local main to origin/main, whatever branch is checked out.
 # `fetch origin main:main` refuses to update a checked-out branch, so pull when main is checked out.
 # Both refuse a non-fast-forward, so local commits on main are never overwritten.
-_sei_ascd::update_main() {
+_sei_ascd::update_substance_main() {
   if [[ "$(git -C "$SEI_SUBSTANCE_DIR" symbolic-ref --short -q HEAD)" == main ]]; then
     git -C "$SEI_SUBSTANCE_DIR" pull --ff-only origin main
   else
@@ -61,13 +61,13 @@ _sei_ascd::update_main() {
 # Run the morning update steps in Ghostty's quick terminal, at most once every 24 hours.
 # The stamp is touched only when every step succeeds, so a failure or Ctrl-C retries next time.
 _sei_ascd::daily_update() {
-  local stamp="$SEI_SUBSTANCE_DIR/_cache/daily-update.stamp"
-  local reply head_before all_ok=1
-
   # Child processes inherit GHOSTTY_QUICK_TERMINAL, so also require the top-level interactive shell.
   if [[ $- != *i* ]] || ((SHLVL != 1)) || [[ -z "${GHOSTTY_QUICK_TERMINAL:+x}" ]]; then
     return 0
   fi
+
+  local stamp="$SEI_SUBSTANCE_DIR/_cache/daily-update.stamp"
+  local reply head_before all_ok=1
 
   # find prints the stamp only if it was modified within the last 24 hours.
   if [[ -n "$(find "$stamp" -mmin -1440 2>/dev/null)" ]]; then
@@ -77,7 +77,7 @@ _sei_ascd::daily_update() {
   # A failure here shouldn't block the other steps, but it leaves the stamp untouched.
   sei::log_info "Daily update: fast-forward main"
   head_before=$(git -C "$SEI_SUBSTANCE_DIR" rev-parse HEAD)
-  if ! _sei_ascd::update_main; then
+  if ! _sei_ascd::update_substance_main; then
     sei::log_error "Daily update: could not fast-forward main. Continuing with the other steps."
     all_ok=0
   fi

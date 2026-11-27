@@ -60,7 +60,7 @@ negative array indices, and empty-array expansion under `set -u`. Verify on macO
 
 ## Shell init architecture
 
-`dotfiles/.bashrc` is the entry point. It sets `$SEI_SUBSTANCE_DIR` first, then sources `lib/it-shell.sh` and immediately calls `sei::bash_init` (which sets up PATH, fnm, completion, and man pager). It then sources the remaining interactive lib files and, as its very last line, calls `sei::bash_post_init`, which resolves the current environment prefix (via `hostname`) and sources the matching `profile/<prefix>.bashrc`. That call must stay last, so the profile runs after, and may override, everything `dotfiles/.bashrc` loads. Do not replace it with a `trap … RETURN`: that trap fires when the next function or `source`d file returns, not when `.bashrc` ends.
+`dotfiles/.bashrc` is the entry point. It sets `$SEI_SUBSTANCE_DIR` first, then sources `lib/it-shell.sh` and immediately calls `sei::bash_init` (which sets up PATH, fnm, completion, and man pager). It then sources the remaining interactive lib files and, as its very last line, calls `sei::bash_post_init`, which resolves the current environment prefix (via `hostname`) and sources the matching `profile/<prefix>.bashrc`. That call must stay last, so the profile runs after, and may override, everything `dotfiles/.bashrc` loads.
 
 `$SEI_SUBSTANCE_DIR` is the canonical env var pointing to the repo root; use it instead of hard-coding the path anywhere.
 
