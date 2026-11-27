@@ -63,8 +63,13 @@ _sei_acmd::scan_lib_command() {
   [[ -n "$range" ]] && printf "%s\t%s\t%s\n" "$cmd" "$file" "$range"
 }
 
+_sei_acmd::cache_file() {
+  printf "%s" "$SEI_SUBSTANCE_DIR/_cache/acmd"
+}
+
 _sei_acmd::build_cache() {
-  local cache_file="$SEI_SUBSTANCE_DIR/_acmd_cache"
+  local cache_file
+  cache_file=$(_sei_acmd::cache_file)
   local tmp_file
   tmp_file=$(mktemp)
 
@@ -92,11 +97,13 @@ _sei_acmd::build_cache() {
   done
 
   sort "$tmp_file" -o "$tmp_file"
+  mkdir -p "${cache_file%/*}"
   mv "$tmp_file" "$cache_file"
 }
 
 _sei_acmd::check_cache() {
-  local cache_file="$SEI_SUBSTANCE_DIR/_acmd_cache"
+  local cache_file
+  cache_file=$(_sei_acmd::cache_file)
   if [[ ! -f "$cache_file" ]] ||
     (($(date +%s) - $(date -r "$cache_file" +%s) > 43200)); then
     _sei_acmd::build_cache
@@ -124,7 +131,8 @@ EOF
     return 1
   fi
 
-  local cache_file="$SEI_SUBSTANCE_DIR/_acmd_cache"
+  local cache_file
+  cache_file=$(_sei_acmd::cache_file)
 
   if [[ "$1" == "-d" ]]; then
     rm -f "$cache_file"
