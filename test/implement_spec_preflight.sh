@@ -129,6 +129,21 @@ origin_head_set() { #@test
   assert_pass
 }
 
+origin_head_set_with_clashing_local_branch() { #@test
+  # A local branch named `origin/trunk` makes `symbolic-ref --short` print
+  # `remotes/origin/trunk` for `origin/HEAD`.
+  add_origin
+  git branch -q -m main trunk
+  git push -q origin trunk
+  git fetch -q origin
+  git remote set-head origin trunk
+  git branch -q origin/trunk
+
+  run --separate-stderr "$SCRIPT" spec.md
+
+  assert_refused trunk
+}
+
 origin_head_unset_falls_back_to_ls_remote() { #@test
   add_origin
   git branch -q -m main trunk

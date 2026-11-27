@@ -74,8 +74,10 @@ EOF
   local default_branch=""
   if git remote get-url origin >/dev/null 2>&1; then
     local origin_head
-    if origin_head=$(git symbolic-ref -q --short refs/remotes/origin/HEAD); then
-      default_branch=${origin_head#origin/}
+    # Read the full ref: `--short` yields `remotes/origin/<name>` when a local
+    # branch is named `origin/<name>`, which would defeat the prefix strip.
+    if origin_head=$(git symbolic-ref -q refs/remotes/origin/HEAD); then
+      default_branch=${origin_head#refs/remotes/origin/}
     fi
 
     if [[ -z $default_branch ]]; then
