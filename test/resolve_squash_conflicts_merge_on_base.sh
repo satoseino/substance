@@ -408,6 +408,33 @@ keeps_executable_mode() { #@test
   [[ "$(cat x.sh)" == "$(text_lines 5 1=x 2=own 4=squash)" ]]
 }
 
+binary_same_change_on_both_sides() { #@test
+  on_base() { printf 'base\0\n' >bin.dat; }
+  on_own() { printf 'new\0\n' >bin.dat; }
+  on_squash() { printf 'new\0\n' >bin.dat; }
+  minimal_scenario
+  printf 'stale\0\n' >bin.dat
+
+  run --separate-stderr "$SCRIPT" "$BASE" bin.dat
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ "$(od -c bin.dat)" == "$(printf 'new\0\n' | od -c)" ]]
+}
+
+binary_same_add_on_both_sides() { #@test
+  on_own() { printf 'new\0\n' >bin.dat; }
+  on_squash() { printf 'new\0\n' >bin.dat; }
+  minimal_scenario
+  rm bin.dat
+
+  run --separate-stderr "$SCRIPT" "$BASE" bin.dat
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ "$(od -c bin.dat)" == "$(printf 'new\0\n' | od -c)" ]]
+}
+
 binary_is_error() { #@test
   on_base() { printf 'base\0\n' >bin.dat; }
   on_own() { printf 'own\0\n' >bin.dat; }

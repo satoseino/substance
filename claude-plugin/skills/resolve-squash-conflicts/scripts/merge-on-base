@@ -25,7 +25,8 @@ It must be a regular file (not a symlink or submodule) in each of HEAD and MERGE
 that has it; if <base> lacks it, an empty ancestor is used.
 
 A change only one side made since <base> needs no merge, so it also works for binaries:
-if one side equals <base> (mode and blob), the other side's version is written. If one
+if both sides are equal (mode and blob), that version is written; if one side equals
+<base>, the other side's version is written. If one
 side lacks the path, the other side's version is written when <base> lacks it too, and
 the file is removed when the other side equals <base>; if the other side changed it,
 that is a modify/delete case and an ERROR. A path both sides deleted is removed.
@@ -110,9 +111,10 @@ EOF
   trap 'rm -rf "$tmp_dir"' EXIT
 
   # With <base> as the ancestor, a change only one side made has a single correct
-  # result: the changed side's version (or its absence). Only a path both sides
-  # changed goes through `git merge-file`, which refuses binary input even when one
-  # side equals the ancestor.
+  # result: the changed side's version (or its absence), as does the same change made
+  # on both sides. Only a path both sides changed differently goes through
+  # `git merge-file`, which refuses binary input even when one side equals the
+  # ancestor or the two sides are identical.
   local side=""
   if [[ -z $head_entry && -z $merge_entry ]]; then
     if [[ -z $base_entry ]]; then
@@ -139,6 +141,9 @@ EOF
 
       return 0
     fi
+  elif [[ $head_entry == "$merge_entry" ]]; then
+    # Both sides made the same change (or none): nothing to merge.
+    side=HEAD
   elif [[ $base_entry == "$head_entry" ]]; then
     side=MERGE_HEAD
   elif [[ $base_entry == "$merge_entry" ]]; then
