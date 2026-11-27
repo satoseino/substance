@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Git fixture helpers for the resolve-squash-conflicts script tests.
+# Git fixture helpers for the script tests that need real repos.
 # Every repo lives under $BATS_TEST_TMPDIR; `origin` is always a local bare repo.
 
 # repo_init [DIR]
