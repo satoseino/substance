@@ -68,7 +68,8 @@ path_absent_from_head() { #@test
   run --separate-stderr "$SCRIPT" "$BASE" new.txt
 
   assert_success
-  assert_output "ERROR: 'new.txt' is absent from HEAD; resolve it as a modify/delete case"
+  assert_output 'MERGE: CLEAN'
+  [[ "$(cat new.txt)" == "$(text_lines 3 1=new)" ]]
 }
 
 path_absent_from_merge_head() { #@test
@@ -78,7 +79,181 @@ path_absent_from_merge_head() { #@test
   run --separate-stderr "$SCRIPT" "$BASE" own.txt
 
   assert_success
-  assert_output "ERROR: 'own.txt' is absent from MERGE_HEAD; resolve it as a modify/delete case"
+  assert_output 'MERGE: CLEAN'
+  [[ "$(cat own.txt)" == "$(text_lines 3 1=own)" ]]
+}
+
+one_sided_add_creates_missing_file() { #@test
+  on_squash() {
+    text_lines 3 1=new >new.txt
+    mkdir -p d/e
+    text_lines 3 1=nested >d/e/new.txt
+  }
+  minimal_scenario
+  rm -r new.txt d
+
+  run --separate-stderr "$SCRIPT" "$BASE" new.txt
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ "$(cat new.txt)" == "$(text_lines 3 1=new)" ]]
+  [[ ! -x new.txt ]]
+
+  run --separate-stderr "$SCRIPT" "$BASE" d/e/new.txt
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ "$(cat d/e/new.txt)" == "$(text_lines 3 1=nested)" ]]
+}
+
+one_sided_add_created_executable() { #@test
+  on_own() {
+    text_lines 3 1=x >x.sh
+    chmod +x x.sh
+  }
+  minimal_scenario
+  rm x.sh
+
+  run --separate-stderr "$SCRIPT" "$BASE" x.sh
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ -x x.sh ]]
+  [[ "$(cat x.sh)" == "$(text_lines 3 1=x)" ]]
+}
+
+head_deleted_merge_head_unchanged() { #@test
+  on_root() { text_lines 3 >gone.txt; }
+  on_own() { rm gone.txt; }
+  minimal_scenario
+  text_lines 3 >gone.txt
+
+  run --separate-stderr "$SCRIPT" "$BASE" gone.txt
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ ! -e gone.txt ]]
+}
+
+merge_head_deleted_head_unchanged() { #@test
+  on_root() { text_lines 3 >gone.txt; }
+  on_squash() { rm gone.txt; }
+  minimal_scenario
+  text_lines 3 >gone.txt
+
+  run --separate-stderr "$SCRIPT" "$BASE" gone.txt
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ ! -e gone.txt ]]
+}
+
+both_deleted() { #@test
+  on_root() { text_lines 3 >gone.txt; }
+  on_own() { rm gone.txt; }
+  on_squash() { rm gone.txt; }
+  minimal_scenario
+  text_lines 3 >gone.txt
+
+  run --separate-stderr "$SCRIPT" "$BASE" gone.txt
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ ! -e gone.txt ]]
+}
+
+absent_from_all_revisions() { #@test
+  minimal_scenario
+
+  run --separate-stderr "$SCRIPT" "$BASE" nope.txt
+
+  assert_success
+  assert_output "ERROR: 'nope.txt' is absent from HEAD, MERGE_HEAD and $BASE"
+}
+
+modify_delete_is_error() { #@test
+  on_root() { text_lines 3 >gone.txt; }
+  on_own() { rm gone.txt; }
+  on_squash() { text_lines 3 2=squash >gone.txt; }
+  minimal_scenario
+  local before
+  before=$(cat gone.txt)
+
+  run --separate-stderr "$SCRIPT" "$BASE" gone.txt
+
+  assert_success
+  assert_output "ERROR: 'gone.txt' is absent from HEAD and changed in MERGE_HEAD since $BASE; resolve it as a modify/delete case"
+  [[ "$(cat gone.txt)" == "$before" ]]
+}
+
+modify_delete_mode_only_is_error() { #@test
+  on_root() { text_lines 3 >gone.txt; }
+  on_own() { chmod +x gone.txt; }
+  on_squash() { rm gone.txt; }
+  minimal_scenario
+
+  run --separate-stderr "$SCRIPT" "$BASE" gone.txt
+
+  assert_success
+  assert_output "ERROR: 'gone.txt' is absent from MERGE_HEAD and changed in HEAD since $BASE; resolve it as a modify/delete case"
+  [[ "$(cat gone.txt)" == "$(text_lines 3)" ]]
+}
+
+symlink_on_one_side_rejected() { #@test
+  on_squash() { ln -s f.txt link; }
+  minimal_scenario
+
+  run --separate-stderr "$SCRIPT" "$BASE" link
+
+  assert_success
+  assert_output "ERROR: 'link' is not a regular file in MERGE_HEAD (mode 120000); resolve it by hand"
+}
+
+removal_stages_nothing() { #@test
+  on_root() { text_lines 3 >gone.txt; }
+  on_own() { rm gone.txt; }
+  minimal_scenario
+  text_lines 3 >gone.txt
+  local staged_before
+  staged_before=$(git ls-files -s)
+
+  run --separate-stderr "$SCRIPT" "$BASE" gone.txt
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ "$(git ls-files -s)" == "$staged_before" ]]
+}
+
+binary_changed_on_one_side() { #@test
+  # Git's merge base `root` makes both sides change bin.dat; against <base> only
+  # own does, so own's version is taken without `git merge-file`.
+  on_root() { printf 'root\0\n' >bin.dat; }
+  on_base() { printf 'base\0\n' >bin.dat; }
+  on_own() { printf 'own\0\n' >bin.dat; }
+  on_squash() { printf 'base\0\n' >bin.dat; }
+  minimal_scenario
+
+  run --separate-stderr "$SCRIPT" "$BASE" bin.dat
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ "$(od -c bin.dat)" == "$(printf 'own\0\n' | od -c)" ]]
+}
+
+filter_path_changed_on_one_side() { #@test
+  on_root() {
+    git config filter.b64.clean 'base64 | tr -d "\n"'
+    git config filter.b64.smudge 'base64 --decode'
+    echo 'f.txt filter=b64' >.gitattributes
+  }
+  on_squash() { text_lines 10 2=two >f.txt; }
+  minimal_scenario
+
+  run --separate-stderr "$SCRIPT" "$BASE" f.txt
+
+  assert_success
+  assert_output 'MERGE: CLEAN'
+  [[ "$(cat f.txt)" == "$(text_lines 10 2=two 8=eight)" ]]
 }
 
 symlink_rejected() { #@test

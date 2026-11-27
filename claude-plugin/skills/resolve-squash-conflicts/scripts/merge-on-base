@@ -21,8 +21,14 @@ lines first, then BASE's, then MERGE_HEAD's, labeled with those names. Stages no
 Requires Git 2.43 or later.
 
 <path> is relative to the repository's top level, as `git diff --name-only` prints it.
-It must be a regular text file (not a symlink or submodule) in both HEAD and
-MERGE_HEAD; if <base> lacks it, an empty ancestor is used.
+It must be a regular file (not a symlink or submodule) in each of HEAD and MERGE_HEAD
+that has it; if <base> lacks it, an empty ancestor is used.
+
+A change only one side made since <base> needs no merge, so it also works for binaries:
+if one side equals <base> (mode and blob), the other side's version is written. If one
+side lacks the path, the other side's version is written when <base> lacks it too, and
+the file is removed when the other side equals <base>; if the other side changed it,
+that is a modify/delete case and an ERROR. A path both sides deleted is removed.
 
 Except with `-h`, prints one of the following to stdout for consumption by an LLM:
 
@@ -75,16 +81,20 @@ EOF
     return 0
   fi
 
+  # Each side's entry is "<mode> <object id>", or empty when the side lacks the path.
+  local head_entry merge_entry base_entry
+  head_entry=$(tree_entry HEAD "$path")
+  merge_entry=$(tree_entry MERGE_HEAD "$path")
+  base_entry=$(tree_entry "$base" "$path")
+
   # A symlink is a blob too, but writing the merged result through it would overwrite
   # its target, so only regular files (mode 100644 or 100755) are accepted.
-  local rev mode
+  local rev entry mode
   for rev in HEAD MERGE_HEAD; do
-    mode=$(git ls-tree --format='%(objectmode)' "$rev" -- "$path" 2>/dev/null || true)
-    if [[ -z $mode ]]; then
-      echo "ERROR: '$path' is absent from $rev; resolve it as a modify/delete case"
-
-      return 0
-    fi
+    entry=$head_entry
+    [[ $rev == MERGE_HEAD ]] && entry=$merge_entry
+    [[ -z $entry ]] && continue
+    mode=${entry%% *}
     if [[ $mode != 100644 && $mode != 100755 ]]; then
       echo "ERROR: '$path' is not a regular file in $rev (mode $mode); resolve it by hand"
 
@@ -99,6 +109,56 @@ EOF
   fi
   trap 'rm -rf "$tmp_dir"' EXIT
 
+  # With <base> as the ancestor, a change only one side made has a single correct
+  # result: the changed side's version (or its absence). Only a path both sides
+  # changed goes through `git merge-file`, which refuses binary input even when one
+  # side equals the ancestor.
+  local side=""
+  if [[ -z $head_entry && -z $merge_entry ]]; then
+    if [[ -z $base_entry ]]; then
+      echo "ERROR: '$path' is absent from HEAD, MERGE_HEAD and $base"
+
+      return 0
+    fi
+    remove_path "$path" "$tmp_dir" && echo "MERGE: CLEAN"
+
+    return 0
+  elif [[ -z $head_entry || -z $merge_entry ]]; then
+    local present=HEAD absent=MERGE_HEAD present_entry=$head_entry
+    if [[ -z $head_entry ]]; then
+      present=MERGE_HEAD absent=HEAD present_entry=$merge_entry
+    fi
+    if [[ -z $base_entry ]]; then
+      side=$present
+    elif [[ $base_entry == "$present_entry" ]]; then
+      remove_path "$path" "$tmp_dir" && echo "MERGE: CLEAN"
+
+      return 0
+    else
+      echo "ERROR: '$path' is absent from $absent and changed in $present since $base; resolve it as a modify/delete case"
+
+      return 0
+    fi
+  elif [[ $base_entry == "$head_entry" ]]; then
+    side=MERGE_HEAD
+  elif [[ $base_entry == "$merge_entry" ]]; then
+    side=HEAD
+  fi
+
+  if [[ -n $side ]]; then
+    if ! git cat-file --filters --path="$path" "$side:$path" >"$tmp_dir/out" 2>"$tmp_dir/stderr"; then
+      echo "ERROR: $(<"$tmp_dir/stderr")"
+
+      return 0
+    fi
+    local side_mode=${head_entry%% *}
+    [[ $side == MERGE_HEAD ]] && side_mode=${merge_entry%% *}
+    write_path "$path" "$tmp_dir" "$side_mode" && echo "MERGE: CLEAN"
+
+    return 0
+  fi
+
+  # Both sides changed the path since <base> (or <base> lacks it): merge the three.
   # The ancestor is <base>'s blob, or the empty blob when <base> lacks the path.
   local base_spec="$base:$path"
   if [[ "$(git cat-file -t "$base_spec" 2>/dev/null)" != blob ]] &&
@@ -149,10 +209,7 @@ EOF
     return 0
   fi
 
-  # Redirect instead of moving, so the working-tree file keeps its mode.
-  if ! cat "$tmp_dir/out" >"$path" 2>"$tmp_dir/stderr"; then
-    echo "ERROR: cannot write '$path': $(<"$tmp_dir/stderr")"
-
+  if ! write_path "$path" "$tmp_dir" ""; then
     return 0
   fi
 
@@ -160,6 +217,53 @@ EOF
     echo "MERGE: CLEAN"
   else
     echo "MERGE: CONFLICTS $rc"
+  fi
+}
+
+# Prints "<mode> <object id>" of <path> in <rev>, or nothing when <rev> lacks it.
+tree_entry() {
+  git ls-tree --format='%(objectmode) %(objectname)' "$1" -- "$2" 2>/dev/null || true
+}
+
+# write_path <path> <tmp_dir> <mode>
+# Writes <tmp_dir>/out over <path>. An existing file is redirected into, so it keeps its
+# mode. A missing one is created along with its parent directories, executable when
+# <mode> is 100755. On failure prints `ERROR: …` and returns 1.
+write_path() {
+  local path=$1 tmp_dir=$2 mode=$3
+  if [[ ! -e $path ]]; then
+    if [[ $path == */* ]] && ! mkdir -p "${path%/*}" 2>"$tmp_dir/stderr"; then
+      echo "ERROR: cannot create the parent directory of '$path': $(<"$tmp_dir/stderr")"
+
+      return 1
+    fi
+  else
+    mode=""
+  fi
+
+  # Redirect instead of moving, so an existing working-tree file keeps its mode.
+  if ! cat "$tmp_dir/out" >"$path" 2>"$tmp_dir/stderr"; then
+    echo "ERROR: cannot write '$path': $(<"$tmp_dir/stderr")"
+
+    return 1
+  fi
+
+  if [[ $mode == 100755 ]] && ! chmod +x "$path" 2>"$tmp_dir/stderr"; then
+    echo "ERROR: cannot make '$path' executable: $(<"$tmp_dir/stderr")"
+
+    return 1
+  fi
+}
+
+# remove_path <path> <tmp_dir>
+# Removes <path> from the working tree if present; never touches the index. On failure
+# prints `ERROR: …` and returns 1.
+remove_path() {
+  local path=$1 tmp_dir=$2
+  if [[ -e $path || -L $path ]] && ! rm -f "$path" 2>"$tmp_dir/stderr"; then
+    echo "ERROR: cannot remove '$path': $(<"$tmp_dir/stderr")"
+
+    return 1
   fi
 }
 
