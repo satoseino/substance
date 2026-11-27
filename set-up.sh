@@ -156,7 +156,9 @@ main() {
   local name
   local -a binaries
 
-  mapfile -t binaries < <(ls -1 "$substance_dir/bin")
+  # Regular, non-hidden files only (e.g. no .DS_Store), as base names.
+  mapfile -t binaries < <(find "$substance_dir/bin" -maxdepth 1 -mindepth 1 -type f ! -name '.*')
+  binaries=("${binaries[@]##*/}")
 
   _link_files "$HOME/.local/bin" "$substance_dir/bin" "binaries"
 

@@ -660,6 +660,12 @@ _sei_rw::pr() {
 
   _sei_rw::pr_precheck "$slug" "$number" || return 1
 
+  if ! git fetch origin main; then
+    sei::log_error "Failed to refresh origin/main. Nothing was checked out"
+
+    return 1
+  fi
+
   # Fetch into FETCH_HEAD only, and verify it is the pre-checked commit before
   # anything lands in the worktree. Never pull, merge, or rebase here: the
   # shared post-merge hook would run pre-commit hooks defined by the PR's tree.
@@ -710,7 +716,7 @@ SUBCOMMANDS:
     sync        [BRANCH]    Pull from the remote branch or switch and pull (project auto-detected via git remote; additionally runs uv sync and activates the virtual environment for jarvis-registry only); must be in a worktree folder
     branch                  List all branches with worktree occupancy markings, for the selected project(s); must be in the workspace folder
     park                    Checkout the corresponding parking branch of the worktree (project auto-detected via git remote)
-    pr          PR_URL      Pre-check a PR's changed files, then fetch its head into branch pr/<N> of this worktree without installing or running anything; must be in the top-level folder of a linked worktree
+    pr          PR_URL      Pre-check a PR's changed files, refresh origin/main, then fetch its head into branch pr/<N> of this worktree without installing or running anything; must be in the top-level folder of a linked worktree
 
 OPTIONS:
     -h            Show this help message
@@ -790,11 +796,12 @@ Fetch a pull request into this worktree for review, including PRs from forks.
 First lists the PR's changed files via `gh` (nothing is fetched yet) and asks
 for confirmation if any of them can run code or instructions locally (agent
 config, CLAUDE.md, pre-commit, pyproject.toml, package.json, Docker, CI...).
-Then fetches refs/pull/<N>/head from origin into branch pr/<N> and switches to
-it, or hard-resets pr/<N> if it is already checked out. Nothing is checked out
-unless the fetched commit is the one whose files were pre-checked. Never runs
-git pull, uv sync, or anything from the PR. Must be used in the top-level
-folder of a clean linked worktree.
+Then runs `git fetch origin main` to refresh origin/main (and stops if that
+fails), before fetching refs/pull/<N>/head from origin into branch pr/<N> and
+switching to it, or hard-resetting pr/<N> if it is already checked out. Nothing
+is checked out unless the fetched commit is the one whose files were
+pre-checked. Never runs git pull, uv sync, or anything from the PR. Must be
+used in the top-level folder of a clean linked worktree.
 
 ARGUMENTS:
     PR_URL      Full GitHub URL of the PR, e.g.
