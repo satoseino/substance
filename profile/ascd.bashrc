@@ -44,3 +44,46 @@ gjrw() {
   printf '\033[H\033[2J'
 }
 # ------------------------------------------------------------------------
+# Daily update.
+
+source "$SEI_SUBSTANCE_DIR/lib/utils.sh"
+source "$SEI_SUBSTANCE_DIR/lib/commands.sh"
+
+# Run the morning update steps in Ghostty's quick terminal, at most once every 24 hours.
+# The stamp is touched only when every step succeeds, so a failure or Ctrl-C retries next time.
+_sei_ascd::daily_update() {
+  local stamp="$SEI_SUBSTANCE_DIR/_cache/daily-update.stamp"
+  local reply
+
+  # Child processes inherit GHOSTTY_QUICK_TERMINAL, so also require the top-level interactive shell.
+  if [[ $- != *i* ]] || ((SHLVL != 1)) || [[ -z "${GHOSTTY_QUICK_TERMINAL:+x}" ]]; then
+    return 0
+  fi
+
+  # find prints the stamp only if it was modified within the last 24 hours.
+  if [[ -n "$(find "$stamp" -mmin -1440 2>/dev/null)" ]]; then
+    return 0
+  fi
+
+  sei::log_info "Daily update: subp"
+  subp || return 1
+
+  sei::log_info "Daily update: claude update"
+  claude update || return 1
+
+  sei::log_info "Daily update: brew update"
+  brew update || return 1
+
+  sei::log_info "Proceed with brew upgrade? [Y/n]"
+  read -r reply || return 1
+
+  if [[ -z "$reply" || "$reply" == [Yy]* ]]; then
+    brew upgrade || return 1
+  fi
+
+  mkdir -p "${stamp%/*}"
+  touch "$stamp"
+}
+
+_sei_ascd::daily_update
+# ------------------------------------------------------------------------
