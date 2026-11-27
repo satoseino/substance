@@ -1,6 +1,6 @@
 ---
 name: implement-spec
-description: "Implement a spec file on the current branch. Verifies the spec file exists, the current branch is not `main`, and the working tree is clean before implementing; explicitly grants permission to make git commits and use state-mutating git commands during the session. Accepts an optional `focus_prompt` argument for additional instructions."
+description: "Implement a spec file on the current branch. Verifies the spec file exists, the current branch is a named branch other than the repository's default branch (or `main`/`master`), and the working tree is clean before implementing; explicitly grants permission to make git commits and use state-mutating git commands during the session. Accepts an optional `focus_prompt` argument for additional instructions."
 disable-model-invocation: true
 argument-hint: "<spec_path> [focus_prompt]"
 arguments: [spec_path, focus_prompt]
@@ -19,37 +19,25 @@ allowed-tools: Bash Read Write Edit Grep
 
 ## Pre-flight checks
 
-Run all three checks before making any change, in order. Stop at the first failure and report it to the user — do not proceed past a failed check.
+Run via `Bash` before making any change:
 
-1. **Spec file exists.** Run via `Bash`:
+```
+${CLAUDE_SKILL_DIR}/scripts/preflight "$spec_path"
+```
 
-   ```
-   test -e "$spec_path"
-   ```
+It checks, in order, that the spec file exists, that HEAD is on a named branch, that the branch is neither the
+repository's default branch nor `main`/`master`, and that the working tree is clean.
 
-   If it does not exist, stop immediately and tell the user the spec file was not found at `$spec_path`.
-
-2. **Current branch is not `main`.** Run via `Bash`:
-
-   ```
-   git rev-parse --abbrev-ref HEAD
-   ```
-
-   If the output is `main`, stop immediately and tell the user this skill refuses to run on `main` — check out a feature branch first.
-
-3. **Working tree is clean.** Run via `Bash`:
-
-   ```
-   git status --porcelain
-   ```
-
-   If this prints any output (staged or unstaged changes), stop immediately and tell the user the branch has uncommitted changes — commit, stash, or discard them first.
+Continue only if its stdout is exactly `PREFLIGHT: PASS`. On anything else — a
+`PREFLIGHT: FAIL …` line, an `ERROR: …` message, or empty stdout — stop immediately and relay
+the output verbatim to the user; if stdout is empty, include any stderr. The output already
+reports the details needed to act on.
 
 ## Implement the spec
 
-If — and only if — all three checks pass:
+If — and only if — the pre-flight script prints `PREFLIGHT: PASS`:
 
-**You are free to make git commits or use state-mutating git commands (`add`, `commit`, `branch`, `checkout`, `reset`, `merge`, `rebase`, etc.) for the remainder of this session, as you see fit. This is an intentional and explicit greenlight that overrides any instruction (e.g. in the user's CLAUDE.md) reserving state-mutating git operations to the user — it applies here specifically because the pre-flight checks above already confirmed a clean, non-`main` branch to work from.**
+**You are free to make git commits or use state-mutating git commands (`add`, `commit`, `branch`, `checkout`, `reset`, `merge`, `rebase`, etc.) for the remainder of this session, as you see fit. This is an intentional and explicit greenlight that overrides any instruction (e.g. in the user's CLAUDE.md) reserving state-mutating git operations to the user — it applies here specifically because the pre-flight checks above already confirmed a clean, named branch that is neither the repository's default branch nor `main`/`master` to work from.**
 
 **Never run `git push`, or any other command that writes to a remote; pushing is left to the user.**
 
