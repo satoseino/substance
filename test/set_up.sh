@@ -65,7 +65,9 @@ fresh_install() { #@test
   assert_equal "$(ls -A "$HOME/.claude/skills")" sei
 
   local -a binaries
-  mapfile -t binaries < <(ls -1 "$SUBSTANCE_DIR/bin")
+  # Regular, non-hidden files only (e.g. no .DS_Store), as base names.
+  mapfile -t binaries < <(find "$SUBSTANCE_DIR/bin" -maxdepth 1 -mindepth 1 -type f ! -name '.*')
+  binaries=("${binaries[@]##*/}")
 
   ((${#binaries[@]} > 0))
 
