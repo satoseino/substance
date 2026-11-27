@@ -33,7 +33,7 @@ implemented, and later used as the yardstick in the PR review.
 |---|---|---|
 | [`write-specs`](skills/write-specs/SKILL.md) | Turns the decisions in the current conversation into one or more Markdown specs with file:line-cited changes, acceptance criteria and a files-to-change table. Never overwrites an existing file. | `/sei:write-specs "<path> :: <topic> ;; ..." "<shared instructions>"` |
 | [`specs-review-loop`](skills/specs-review-loop/SKILL.md) | Reviews specs against themselves, each other, the current code and the session's decisions; fixes what has a clear fix, and stops on a clean round, a question for you, or the round cap. | `/sei:specs-review-loop <rounds> "<spec> ;; ..." [focus]` |
-| [`implement-spec`](skills/implement-spec/SKILL.md) | Implements a spec on the current branch, committing as it goes. Refuses to run on `main` or with a dirty tree. | `/sei:implement-spec <spec> [focus]` |
+| [`implement-spec`](skills/implement-spec/SKILL.md) | Implements a spec on the current branch, committing as it goes. Refuses to run on the default branch (or `main`/`master`), on a detached HEAD, or with a dirty tree. | `/sei:implement-spec <spec> [focus]` |
 | [`pr-message`](skills/pr-message/SKILL.md) | Writes a PR title and description from the conversation, ready for `/copy`. | `/sei:pr-message` |
 | [`pr-review`](skills/pr-review/SKILL.md) | `start` checks that the local checkout matches the PR head, reviews the diff against a spec, writes a report with labelled findings (`[C1]`, `[M2]`, `[m3]`) and walks you through accepting or dismissing each. `followup` finds your posted comments by label, rates whether each was addressed, and looks for new problems. | `/sei:pr-review start <pr_url> <spec> <report> <session> [focus]`<br>`/sei:pr-review followup <session> [focus]` |
 | [`pr-comment`](skills/pr-comment/SKILL.md) | Writes the GitHub comment for an accepted finding, opening with the `This is change request [Xn].` line that `followup` matches on. | `/sei:pr-comment <label>` |
@@ -45,7 +45,7 @@ implemented, and later used as the yardstick in the PR review.
 
 - **Nothing is posted to GitHub.** Reviews, comments and PR messages are written to local files or printed for
   `/copy`; you decide what to post.
-- **Git writes are opt-in.** Only `implement-spec` commits, and only on a clean non-`main` branch.
+- **Git writes are opt-in.** Only `implement-spec` commits, and only on a clean feature branch, never the default branch.
   `resolve-squash-conflicts` runs `git add` and nothing more.
 - **Facts come from scripts, not the model.** GitHub API calls, SHA checks and merge bookkeeping live in bash scripts
   that print a fixed `PASS` / `FAIL` / `ERROR:` protocol, which the skill relays verbatim on failure.
@@ -95,7 +95,7 @@ namespace, which a lone skill folder does not get.
 | `pr-review` | `git`; `gh` >= 2.81.0 (for `gh auth status --json`), authenticated to github.com; `jq` | PRs on github.com only (`scripts/lib/gh-preflight.sh` reads the `github.com` host); invokes `sei:fetch-single-comment` when a focus prompt names a comment URL; uses any available web search tool, else reviews without one |
 | `fetch-single-comment` | `gh` (authenticated), `jq` | github.com comment URLs |
 | `resolve-squash-conflicts` | `git` (`merge-file`, `ls-remote`, `fetch`) | `origin` serves `refs/pull/<n>/head`, as GitHub does |
-| `implement-spec` | `git` | Refuses only on a branch named `main`; grants itself commits and other state-changing local git commands for the rest of the session, but never `push` |
+| `implement-spec` | `git` (`symbolic-ref`, `ls-remote`) | Refuses `origin`'s default branch (from `origin/HEAD`, else `git ls-remote`), `main`, `master` and a detached HEAD; fails closed when `origin` exists but its default branch can't be determined; grants itself commits and other state-changing local git commands for the rest of the session, but never `push` |
 | `write-specs`, `specs-review-loop`, `pr-message`, `pr-comment`, `session-file` | none | — |
 
 - Bundled scripts run with the first `bash` on `PATH` and are tested on Bash 3.2 (stock macOS `/bin/bash`) and Bash 5.

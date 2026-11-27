@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+
+set -eu -o pipefail
+
+main() {
+  if (($# > 0)) && [[ $1 == "-h" ]]; then
+    cat <<'EOF'
+Usage: preflight [-h] <spec_path>
+
+Pre-flight checks for implementing a spec on the current branch. Checks, in order,
+that the spec file exists, that the current directory is inside a git work tree,
+that HEAD is on a named branch (not detached), that the branch is neither `main`,
+`master`, nor origin's default branch, and that the working tree is clean.
+
+origin's default branch is read from `refs/remotes/origin/HEAD`, else from
+`git ls-remote --symref origin HEAD`. Without an `origin` remote only `main` and
+`master` are refused. With an `origin` whose default branch cannot be determined,
+the check fails closed.
+
+Except with `-h`, prints exactly one of the following lines to stdout for
+consumption by an LLM:
+
+    PREFLIGHT: PASS
+
+    PREFLIGHT: FAIL — <details>
+
+    ERROR: <reason>
+
+Always exits 0; the outcome is conveyed by stdout alone.
+
+ARGUMENTS:
+    spec_path   Path to the spec file, relative to the current directory or absolute
+
+OPTIONS:
+    -h          Show this help message
+EOF
+
+    return 0
+  fi
+
+  if (($# != 1)); then
+    echo "ERROR: preflight takes exactly one positional argument: <spec_path>"
+
+    return 0
+  fi
+
+  local spec_path=$1
+  if ! test -e "$spec_path"; then
+    echo "PREFLIGHT: FAIL — spec file not found: $spec_path"
+
+    return 0
+  fi
+
+  if ! stderr_file=$(mktemp 2>&1); then
+    echo "ERROR: $stderr_file"
+
+    return 0
+  fi
+  trap 'rm -f "$stderr_file"' EXIT
+
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>"$stderr_file"; then
+    echo "ERROR: $(<"$stderr_file")"
+
+    return 0
+  fi
+
+  local branch
+  if ! branch=$(git symbolic-ref -q --short HEAD); then
+    echo "PREFLIGHT: FAIL — HEAD is detached; check out a feature branch first"
+
+    return 0
+  fi
+
+  local default_branch=""
+  if git remote get-url origin >/dev/null 2>&1; then
+    local origin_head
+    # Read the full ref: `--short` yields `remotes/origin/<name>` when a local
+    # branch is named `origin/<name>`, which would defeat the prefix strip.
+    if origin_head=$(git symbolic-ref -q refs/remotes/origin/HEAD); then
+      default_branch=${origin_head#refs/remotes/origin/}
+    fi
+
+    if [[ -z $default_branch ]]; then
+      # An unreachable origin yields no output; that falls through to the FAIL below.
+      local ls_remote_output="" line symref_re=$'^ref: refs/heads/(.+)\tHEAD$'
+      ls_remote_output=$(git ls-remote --symref origin HEAD 2>/dev/null) || true
+      while IFS= read -r line; do
+        if [[ $line =~ $symref_re ]]; then
+          default_branch=${BASH_REMATCH[1]}
+        fi
+      done <<<"$ls_remote_output"
+    fi
+
+    if [[ -z $default_branch ]]; then
+      echo "PREFLIGHT: FAIL — could not determine origin's default branch; set it with 'git remote set-head origin --auto'"
+
+      return 0
+    fi
+  fi
+
+  # `main` and `master` stay refused even when origin names another default
+  # branch, as a backstop for a stale `origin/HEAD`.
+  if [[ $branch == main || $branch == master || $branch == "$default_branch" ]]; then
+    echo "PREFLIGHT: FAIL — refusing to run on '$branch' (the default branch or main/master); check out a feature branch first"
+
+    return 0
+  fi
+
+  local status_output
+  if ! status_output=$(git status --porcelain 2>"$stderr_file"); then
+    echo "ERROR: $(<"$stderr_file")"
+
+    return 0
+  fi
+
+  if [[ -n $status_output ]]; then
+    echo "PREFLIGHT: FAIL — the working tree has uncommitted changes; commit, stash, or discard them first"
+
+    return 0
+  fi
+
+  echo "PREFLIGHT: PASS"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi
