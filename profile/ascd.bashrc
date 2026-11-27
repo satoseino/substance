@@ -15,6 +15,7 @@ source "$SEI_SUBSTANCE_DIR/lib/rw.sh"
 source "$SEI_SUBSTANCE_DIR/lib/jarvis-logs.sh"
 source "$SEI_SUBSTANCE_DIR/lib/jarvis-dc.sh"
 source "$SEI_SUBSTANCE_DIR/lib/jarvis-pf.sh"
+source "$SEI_SUBSTANCE_DIR/lib/daily-update.sh"
 
 sso-login() {
   PATH="$HOME/.local/bin:/usr/local/bin:$PATH" aws sso login --sso-session sso-ascending
@@ -43,4 +44,8 @@ gjrw() {
 
   printf '\033[H\033[2J'
 }
+# ------------------------------------------------------------------------
+# Daily update.
+
+sei::daily_update_once
 # ------------------------------------------------------------------------

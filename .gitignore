@@ -1,6 +1,7 @@
 .DS_Store
 /.gitignore.override
 /.claude/settings.local.json
-/_acmd_cache
+/_cache/*
+!/_cache/.gitkeep
 /.working-docs
 

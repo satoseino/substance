@@ -12,7 +12,6 @@ source "$SEI_SUBSTANCE_DIR/lib/it-shell.sh"
 # Initialization
 
 sei::bash_init
-trap 'sei::bash_post_init; trap - RETURN' RETURN
 # ------------------------------------------------------------------------
 # Environment variables
 
@@ -28,3 +27,6 @@ source "$SEI_SUBSTANCE_DIR/lib/cplan.sh"
 source "$SEI_SUBSTANCE_DIR/lib/acmd.sh"
 source "$SEI_SUBSTANCE_DIR/lib/rm-images.sh"
 # ------------------------------------------------------------------------
+# Source the env-specific profile. This must stay the last line, so that the profile runs after,
+# and may override, everything above.
+sei::bash_post_init
