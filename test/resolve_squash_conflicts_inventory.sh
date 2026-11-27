@@ -134,6 +134,22 @@ modify_delete() { #@test
   assert_output "$(printf '%s\n' 'INVENTORY: 1' $'modify-delete\tDU\town=yes\ttarget=yes\tgone.txt')"
 }
 
+rename_rename_both_deleted() { #@test
+  # Each side renamed a.txt differently: Git records a.txt as DD (both deleted).
+  on_root() { text_lines 50 >a.txt; }
+  on_own() { git mv a.txt b.txt; }
+  on_squash() { git mv a.txt c.txt; }
+  minimal_scenario
+
+  run --separate-stderr "$SCRIPT" "$BASE"
+
+  assert_success
+  assert_output "$(printf '%s\n' 'INVENTORY: 3' \
+    $'delete\tDD\town=yes\ttarget=yes\ta.txt' \
+    $'take-ours\tAU\town=yes\ttarget=no\tb.txt' \
+    $'take-theirs\tUA\town=no\ttarget=yes\tc.txt')"
+}
+
 conflict_codes() { #@test
   on_root() {
     text_lines 3 >du.txt

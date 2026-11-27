@@ -28,9 +28,14 @@ between <base> and HEAD, target=yes when it differs between <base> and MERGE_HEA
 
     take-theirs     own=no: take MERGE_HEAD's version (a deletion if it lacks the path)
     take-ours       target=no: take HEAD's version (a deletion if it lacks the path)
+    delete          neither HEAD nor MERGE_HEAD has the path (e.g. DD): delete it
     lockfile        a generated lockfile both sides changed: regenerate it
     merge-on-base   both HEAD and MERGE_HEAD have the path: run merge-on-base
     modify-delete   one side lacks the path and both changed it: resolve by hand
+
+A DD path next to AU/UA paths is usually a rename/rename conflict: each side renamed
+the same file differently. Taking every suggested action would keep both renamed
+copies, so resolve the group together.
 
 Always exits 0; the outcome is conveyed by stdout alone.
 
@@ -88,7 +93,7 @@ EOF
     return 0
   fi
 
-  local entry xy path own target action count=0 lines=""
+  local entry xy path own target in_head in_merge action count=0 lines=""
   while IFS= read -r -d '' entry; do
     xy=${entry:0:2}
     path=${entry:3}
@@ -102,13 +107,20 @@ EOF
     target=no
     git diff --quiet "$base" MERGE_HEAD -- "$path" || target=yes
 
+    in_head=no
+    in_tree HEAD "$path" && in_head=yes
+    in_merge=no
+    in_tree MERGE_HEAD "$path" && in_merge=yes
+
     if [[ $own == no ]]; then
       action=take-theirs
     elif [[ $target == no ]]; then
       action=take-ours
+    elif [[ $in_head == no && $in_merge == no ]]; then
+      action=delete
     elif _is_generated_lockfile "$path"; then
       action=lockfile
-    elif in_tree HEAD "$path" && in_tree MERGE_HEAD "$path"; then
+    elif [[ $in_head == yes && $in_merge == yes ]]; then
       action=merge-on-base
     else
       action=modify-delete
