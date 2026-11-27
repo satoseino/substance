@@ -76,7 +76,7 @@ fake_gh_respond() {
 
 # Executables the skill scripts use. `bash` is needed because every script
 # starts with `#!/usr/bin/env bash`.
-NO_GH_TOOLS=(bash cat dirname git jq mktemp readlink rm sed tr)
+NO_GH_TOOLS=(bash cat chmod dirname git jq mkdir mktemp readlink rm sed tr)
 
 # use_path_without_gh [EXTRA_TOOL...]
 # Replace PATH with a single folder holding symlinks to NO_GH_TOOLS plus any

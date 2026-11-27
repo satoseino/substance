@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+
+set -eu -o pipefail
+
+source "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/lib/lockfiles.sh"
+
+main() {
+  if (($# > 0)) && [[ $1 == "-h" ]]; then
+    cat <<'EOF'
+Usage: inventory [-h] <base>
+
+Lists the conflicted (unmerged) paths of an in-progress merge on a stacked branch, with
+the facts that pick the resolution rule for each: whether the stacked branch changed the
+path since <base> (own), whether the target did (target), and the suggested action.
+
+Except with `-h`, prints one of the following to stdout for consumption by an LLM:
+
+    INVENTORY: <n>
+    <action>\t<xy>\town=<yes|no>\ttarget=<yes|no>\t<path>
+    ...
+
+    ERROR: <reason>
+
+<n> is the number of lines that follow, one per unmerged path. <xy> is the path's
+`git status --porcelain` code (DD AU UD UA DU AA UU). own=yes when the path differs
+between <base> and HEAD, target=yes when it differs between <base> and MERGE_HEAD.
+<path> is relative to the repository's top level. <action> is the first that applies:
+
+    take-theirs     own=no: take MERGE_HEAD's version (a deletion if it lacks the path)
+    take-ours       target=no: take HEAD's version (a deletion if it lacks the path)
+    delete          neither HEAD nor MERGE_HEAD has the path (e.g. DD): delete it
+    lockfile        a generated lockfile both sides changed: regenerate it
+    merge-on-base   both HEAD and MERGE_HEAD have the path: run merge-on-base
+    modify-delete   one side lacks the path and both changed it: resolve by hand
+
+A DD path next to AU/UA paths is usually a rename/rename conflict: each side renamed
+the same file differently. Taking every suggested action would keep both renamed
+copies, so resolve the group together.
+
+Always exits 0; the outcome is conveyed by stdout alone.
+
+ARGUMENTS:
+    base        BASE from preflight: the last old-base commit the stacked branch contains
+
+OPTIONS:
+    -h          Show this help message
+EOF
+
+    return 0
+  fi
+
+  if (($# != 1)); then
+    echo "ERROR: inventory takes exactly one positional argument: <base>"
+
+    return 0
+  fi
+
+  local base=$1
+
+  # Paths are fed to git as pathspecs; match them literally.
+  export GIT_LITERAL_PATHSPECS=1
+
+  local toplevel
+  if ! toplevel=$(git rev-parse --show-toplevel 2>&1) || ! cd "$toplevel"; then
+    echo "ERROR: cannot enter the repository's top level: $toplevel"
+
+    return 0
+  fi
+
+  if ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+    echo "ERROR: no merge in progress (MERGE_HEAD missing)"
+
+    return 0
+  fi
+
+  if ! git rev-parse -q --verify "$base^{commit}" >/dev/null; then
+    echo "ERROR: '$base' is not a commit"
+
+    return 0
+  fi
+
+  # Not local: the EXIT trap runs after main returns.
+  if ! tmp_dir=$(mktemp -d 2>&1); then
+    echo "ERROR: $tmp_dir"
+
+    return 0
+  fi
+  trap 'rm -rf "$tmp_dir"' EXIT
+
+  if ! git status --porcelain=v1 -z --no-renames --untracked-files=no >"$tmp_dir/status" 2>"$tmp_dir/stderr"; then
+    echo "ERROR: $(<"$tmp_dir/stderr")"
+
+    return 0
+  fi
+
+  local entry xy path own target in_head in_merge action count=0 lines=""
+  while IFS= read -r -d '' entry; do
+    xy=${entry:0:2}
+    path=${entry:3}
+    case $xy in
+    DD | AU | UD | UA | DU | AA | UU) ;;
+    *) continue ;;
+    esac
+
+    own=no
+    git diff --quiet "$base" HEAD -- "$path" || own=yes
+    target=no
+    git diff --quiet "$base" MERGE_HEAD -- "$path" || target=yes
+
+    in_head=no
+    in_tree HEAD "$path" && in_head=yes
+    in_merge=no
+    in_tree MERGE_HEAD "$path" && in_merge=yes
+
+    if [[ $own == no ]]; then
+      action=take-theirs
+    elif [[ $target == no ]]; then
+      action=take-ours
+    elif [[ $in_head == no && $in_merge == no ]]; then
+      action=delete
+    elif _is_generated_lockfile "$path"; then
+      action=lockfile
+    elif [[ $in_head == yes && $in_merge == yes ]]; then
+      action=merge-on-base
+    else
+      action=modify-delete
+    fi
+
+    lines+="$action	$xy	own=$own	target=$target	$path"$'\n'
+    count=$((count + 1))
+  done <"$tmp_dir/status"
+
+  echo "INVENTORY: $count"
+  printf '%s' "$lines"
+}
+
+# in_tree <rev> <path>: succeeds when <rev> has <path>.
+in_tree() {
+  [[ -n "$(git ls-tree --name-only "$1" -- "$2" 2>/dev/null || true)" ]]
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

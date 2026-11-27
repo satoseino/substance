@@ -37,4 +37,5 @@ exclude-signatures = [
     {signature = "e3d4852b1b5f020fe941666a24614971e17c4d58d2d0bf52efc300f019a8a7a6", reason = "script path in preflight test is not credential"},
     {signature = "976a10a11b2ab3d9c08bdb275f71589901f5328801ee88de1fcb3bbfc7806c5e", reason = "script path in verify-own-changes test is not credential"},
     {signature = "03b84f467c616770e5f126acb6d46757786e59707628cb1347414c8ba6fd4896", reason = "plugin link path in set-up.sh test is not credential"},
+    {signature = "8c75a3629bb6aa7125ede39ac3fee533edeae992cbd5d33793dc31c5d5cef176", reason = "script path in remerge-auto test is not credential"},
 ]
