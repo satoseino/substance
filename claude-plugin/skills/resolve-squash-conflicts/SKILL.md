@@ -79,7 +79,10 @@ After each step, print one line of progress (e.g.
    line per conflicted path: `<xy>` is its `git status --porcelain` code (`UU` content, `AA`
    add/add, `UD`/`DU` modify/delete, ...), `own` says whether the stacked branch changed the
    path since `BASE`, `target` whether the target did, and `<action>` is the resolution step 3's
-   rules suggest (`take-theirs`, `take-ours`, `lockfile`, `merge-on-base` or `modify-delete`).
+   rules suggest (`take-theirs`, `take-ours`, `delete`, `lockfile`, `merge-on-base` or
+   `modify-delete`). A `DD` path next to `AU`/`UA` paths is usually a rename/rename conflict
+   (each side renamed the same file differently): taking every suggested action would keep both
+   renamed copies, so decide the group together.
    On `ERROR: …`, list the conflicted paths with `git diff --name-only --diff-filter=U` and note
    each one's conflict kind from `git status --porcelain` instead. Re-running
    `git diff --name-only --diff-filter=U` at any point lists what is still unresolved;
@@ -98,7 +101,8 @@ After each step, print one line of progress (e.g.
    - `differs\t<path>` (clean, but not Git's result) or `conflicts\t<path>\t<n>`: read
      `git diff -- <path>` and keep the `merge-on-base` result unless that diff shows Git's was
      right; to keep Git's result instead, restore it from the index with
-     `git cat-file --filters :<path> > <path>`. Resolve any conflict blocks as in step 3, grep
+     `git cat-file --filters :<path> > <path>`, or, if the index lacks the path (Git's
+     auto-merge deleted it), remove the file. Resolve any conflict blocks as in step 3, grep
      for conflict markers, stage the path, and record a judgment call.
    - `lockfile\t<path>`: a generated lockfile both sides changed; handle it with step 3's
      lockfile rule.
@@ -115,6 +119,7 @@ After each step, print one line of progress (e.g.
    - If both sides have the file and the target did not change it since `BASE` (`target=no`),
      `HEAD`'s version is already `BASE` + own changes: take it
      (`git cat-file --filters :2:<path> > <path>`).
+   - If neither `HEAD` nor `MERGE_HEAD` has the path (`DD`, both deleted it), delete it.
    - If the path is a generated lockfile (e.g. `uv.lock`, `package-lock.json`, `poetry.lock`,
      `Cargo.lock`) and both sides changed it, do not merge its hunks. Take `MERGE_HEAD`'s version,
      resolve the manifests it is generated from first, then regenerate it with the project's lock
@@ -132,10 +137,10 @@ After each step, print one line of progress (e.g.
      changed the same lines, in Git's order: `<<<<<<< HEAD`, `||||||| BASE`, `=======`,
      `>>>>>>> MERGE_HEAD`), or `ERROR: …`. It resolves a change only one side made since
      `BASE` itself (also for a binary file, a deletion, or a file only one side added), so it
-     errors only on a real modify/delete, a binary file both sides changed since `BASE`, or a
-     path that is not a regular file. On an error, start from `MERGE_HEAD`'s version and
-     re-apply the stacked branch's own hunks by hand. Do not use `git apply --3way`: it rejects
-     paths with unmerged index entries.
+     errors only on a real modify/delete, a binary file both sides changed differently since
+     `BASE`, or a path that is not a regular file. On an error, start from `MERGE_HEAD`'s
+     version and re-apply the stacked branch's own hunks by hand. Do not use
+     `git apply --3way`: it rejects paths with unmerged index entries.
    - If a stacked-branch hunk touches code that `MERGE_HEAD` changed in a different way (each
      conflict block `merge-on-base` leaves is one; review fixes pushed to the old base after the
      fork are typical — `git log --oneline "$BASE..$OLD_TIP"` lists them), merge the intent of
@@ -163,9 +168,10 @@ After each step, print one line of progress (e.g.
    changes include a rename, a library or API migration, or another mechanical replacement
    applied across the codebase (e.g. `import httpx` → `import httpx2`, a renamed function or
    test, or a Helm template block pattern rewritten in every template, such as
-   `{{- with (include "x.env" .) }}` → `{{- $env := include "x.env" . }}`), or remove a function, class, module or other symbol, the target may have added new uses
-   of the old form — e.g. a test for a review fix to removed code — both in conflicted paths and
-   in auto-merged ones that no conflict flagged. Grep the working-tree version of every path in
+   `{{- with (include "x.env" .) }}` → `{{- $env := include "x.env" . }}`), or remove a
+   function, class, module or other symbol, the target may have added new uses of the old
+   form — e.g. a test for a review fix to removed code — both in conflicted paths and in
+   auto-merged ones that no conflict flagged. Grep the working-tree version of every path in
    `TARGET_CHANGES` (skip deleted ones) for the old or removed symbols, module names and
    identifiers, including in comments and docstrings. Apply the same replacement to each
    target-introduced occurrence of a renamed or migrated form. Drop a target-introduced use of a
@@ -234,8 +240,8 @@ Report to the user:
 - PR `$old_pr`, `OLD_TIP` and `BASE` (short SHAs), whether the fetch was needed, and the
   stacked branch's own commits.
 - One line per conflicted path: the conflict kind and how it was resolved (took target's
-  version / took ours (target unchanged) / took ours/theirs per `inventory` / merged on `BASE` (clean, or with N conflict blocks
-  resolved by hand) / regenerated / deleted / ...).
+  version / took ours (target unchanged) / took ours/theirs per `inventory` / merged on `BASE`
+  (clean, or with N conflict blocks resolved by hand) / regenerated / deleted / ...).
 - Every **judgment call**, with what each side had and what was chosen and why.
 - Any lockfile whose regeneration failed: the error, and that it holds `MERGE_HEAD`'s version
   until the user runs the lock command (give it).
